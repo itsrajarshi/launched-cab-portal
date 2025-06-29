@@ -1,0 +1,100 @@
+/* Boarding Pass Card Animations and Styles */
+.animate-gradient-x {
+  background: linear-gradient(90deg, #a78bfa, #38bdf8, #06b6d4);
+  background-size: 200% 100%;
+  animation: gradient-x 3s linear infinite;
+}
+@keyframes gradient-x {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+.animate-car-bounce {
+  animation: car-bounce 1.2s infinite alternate cubic-bezier(.5,1.8,.5,1);
+}
+@keyframes car-bounce {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(-58px) scale(1.08); }
+}
+.animate-fade-in {
+  animation: fade-in 0.7s cubic-bezier(.4,0,.2,1);
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-out {
+  animation: fade-out 0.7s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes fade-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(32px); }
+}
+.boardingpass-card {
+  max-width: 32rem;
+  margin: 2.5rem auto;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  border-radius: 1.5rem;
+  background: rgba(30, 41, 59, 0.75);
+  box-shadow: 0 8px 32px #1e3a8a33, 0 1.5px 0 #60a5fa33;
+  border: 1.5px solid rgba(96, 165, 250, 0.18);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+  color: #fff;
+  position: relative;
+  overflow: visible;
+}
+.boardingpass-road {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 0.7rem;
+  background: linear-gradient(90deg, #60a5fa 0%, #38bdf8 100%);
+  border-radius: 9999px;
+  box-shadow: 0 2px 16px #60a5fa44, 0 0.5px 0 #fff4;
+  transform: translateY(-50%);
+  overflow: hidden;
+}
+.boardingpass-road::after {
+  content: '';
+  display: block;
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #fff 0 10px, transparent 10px 20px);
+  opacity: 0.7;
+  border-radius: 1px;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.boardingpass-car {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: left 1s cubic-bezier(.4,0,.2,1);
+  font-size: 2.5rem;
+  z-index: 2;
+}
+.boardingpass-car[data-progress] {
+  /* fallback for browsers that don't support attr() in calc() */
+  left: 10%;
+}
+.trip-car {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  /* left will be set dynamically via a CSS variable */
+  left: var(--trip-car-left, 5%);
+  transition: left 1s linear;
+}
+.trip-car[data-progress] {
+  left: 5%;
+}
+.trip-car-icon {
+  font-size: 2rem;
+}
+/* Utility to set --progress from data-progress attribute */
+[data-progress] {
+  --progress: attr(data-progress number);
+}
