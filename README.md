@@ -20,5 +20,3 @@
 ---
 
 See `docs/` for workflow and architecture details.
-Updated booking after assign: {id: '6f09076b-ba88-48f6-aa22-f151fe5f3f81', user_id: null, details: null, created_at: '2025-06-25T14:47:50.660461+00:00', category: 'Sedan', …}
-C:\Users\Raj\capstone\frontend\src\app\dashboard\bookings\page.tsx:253 Bookings after assign fetch: [{…}]
