@@ -159,8 +159,8 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
               </tr>
             </thead>
             <tbody>
-              {filtered.map(row => (
-                <tr key={row.id} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
+              {filtered.map((row, idx) => (
+                <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
                   <td className="border px-4 py-2">{row.invoiceNumber}</td>
                   <td className="border px-4 py-2">{row.company}</td>
                   <td className="border px-4 py-2">₹{row.amount}</td>
@@ -196,8 +196,8 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
                     </tr>
                   </thead>
                   <tbody>
-                    {(invs as Invoice[]).map(row => (
-                      <tr key={row.id} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
+                    {(invs as Invoice[]).map((row, idx) => (
+                      <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
                         <td className="border px-4 py-2">{row.invoiceNumber}</td>
                         <td className="border px-4 py-2">{row.company}</td>
                         <td className="border px-4 py-2">₹{row.amount}</td>

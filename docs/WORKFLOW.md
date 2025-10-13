@@ -29,11 +29,3 @@ Companies ↔ Vendors (multiple associations on both ends).
 - Open Market Feature
 - Modern, glassmorphic UI with accessibility and dark mode
 
-### 5. Access Control
-- Based on region & availability.
-- Notifications: Real time when eligible to accept open market bookings.
-- Role-based navigation and dashboard views.
-
----
-
-See main README for tech stack, UI/UX, and deliverables.
