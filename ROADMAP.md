@@ -12,7 +12,7 @@ Ordered by impact. Effort is a rough estimate (hours) for a single senior engine
 | 4 | Fix crash bugs (`toLocaleDateString`, `errors.gguest`) + remove debug `<span>` and dead state | 1h | Low | `fix/bookings-bugs` |
 | 5 | zod validation on auth/bookings/invoices; remove fake `starttrip` billing values | 4h | Med | `fix/input-validation` |
 | 6 | Global error/404 handlers, Helmet, CORS allowlist, rate limit on auth | 3h | Med | `fix/api-hardening` |
-| 7 | Committed `supabase/schema.sql` + apply to project | 3h | Med | `feat/db-schema-migrations` |
+| 7 | Committed `supabase/migrations/0001_init.sql` + apply to project | 3h | Med | `feat/db-schema-migrations` |
 
 ## High priority
 

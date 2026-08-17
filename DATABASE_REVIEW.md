@@ -2,7 +2,7 @@
 
 The repository ships **no schema, migrations, or seed data** — tables are assumed to exist in a
 Supabase project. This document reviews what the code implies and prescribes a target schema
-(implemented in `supabase/schema.sql`).
+(implemented in `supabase/migrations/0001_init.sql`).
 
 ## Implied tables
 
@@ -46,7 +46,7 @@ Insert body passed through directly (no fixed shape in backend). Frontend implie
 | 9 | No RLS policies (backend uses service-role key, so ACL must be enforced in app code) | 🟠 |
 | 10 | `drivers.id` doubles as "EmployeeId" (string) rather than a surrogate key | 🟡 |
 
-## Target schema (see `supabase/schema.sql`)
+## Target schema (see `supabase/migrations/0001_init.sql`)
 
 - `users(id uuid pk, email citext unique, password_hash text, role text check, name text, created_at)`.
 - `companies`, `vendors` (or keep `users.role` for MVP simplicity).
@@ -59,6 +59,6 @@ Insert body passed through directly (no fixed shape in backend). Frontend implie
 
 ## Migration strategy
 
-1. Commit `supabase/schema.sql` as the source of truth (idempotent `CREATE TABLE IF NOT EXISTS`).
+1. Commit `supabase/migrations/0001_init.sql` as the source of truth (idempotent `CREATE TABLE IF NOT EXISTS`).
 2. Add a lightweight migration runner or document apply steps in `backend/README.md`.
 3. Seed a demo company + vendor + driver/vehicle via `supabase/seed.sql` (optional).

@@ -90,7 +90,7 @@ Statuses observed in code: `pending`, `upcoming`, `ongoing`, `completed`, `cance
 
 There are **no foreign keys, no indexes, no migrations, no RLS policies** in the repository.
 The schema lives only in the (uncommitted) Supabase project. See `DATABASE_REVIEW.md` and
-`supabase/schema.sql` (added in the refactor) for the target schema.
+`supabase/migrations/0001_init.sql` (added in the refactor) for the target schema.
 
 ## Key design decisions (and their consequences)
 
