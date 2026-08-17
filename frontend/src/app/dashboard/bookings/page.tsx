@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
-import { fetchBookings, createBooking, updateBooking, deleteBooking, placeInOpenMarket, acceptOpenMarket, startTrip, endTrip, rejectBooking, fetchDrivers, fetchVehicles, fetchEligibleOpenMarketBookings, createInvoice } from "@/lib/api";
+import { fetchBookings, createBooking, updateBooking, deleteBooking, startTrip, endTrip, fetchDrivers, fetchVehicles, createInvoice } from "@/lib/api";
 import { saveAs } from "file-saver";
 import './boardingpass.css';
 
@@ -39,15 +39,16 @@ interface Booking {
   assocVendor?: string;
 }
 
-interface DummyInvoice {
-  id: string;
-  bookingId: string;
-  invoiceNumber: string;
-  company: string;
-  amount: number;
-  status: 'pending' | 'received';
-  date: string;
-  month: string;
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString();
+}
+
+function safeTimestamp(dateStr?: string): number {
+  if (!dateStr) return 0;
+  const t = new Date(dateStr).getTime();
+  return isNaN(t) ? 0 : t;
 }
 
 function BookingForm({ onClose, onSubmit, initial }: {
@@ -82,7 +83,7 @@ function BookingForm({ onClose, onSubmit, initial }: {
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div>
         <input className="w-full border rounded px-3 py-2 dark:bg-gray-900 dark:text-white dark:border-gray-700" placeholder="Guest Name" value={form.guest || ""} onChange={e => setForm(f => ({ ...f, guest: e.target.value }))} />
-        {errors.gguest && <div className="text-red-500 text-sm">{errors.guest}</div>}
+        {errors.guest && <div className="text-red-500 text-sm">{errors.guest}</div>}
       </div>
       <div>
         <input className="w-full border rounded px-3 py-2 dark:bg-gray-900 dark:text-white dark:border-gray-700" placeholder="Date" type="date" value={form.date || ""} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
@@ -113,33 +114,12 @@ function BookingForm({ onClose, onSubmit, initial }: {
   );
 }
 
-// SLA Timer for pending bookings
-function SLATimer({ placedAt, minutes = 30 }: { placedAt: string, minutes?: number }) {
-  const [timeLeft, setTimeLeft] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const placed = new Date(placedAt);
-      const diff = minutes * 60 - Math.floor((now.getTime() - placed.getTime()) / 1000);
-      setTimeLeft(diff > 0 ? diff : 0);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [placedAt, minutes]);
-  if (timeLeft <= 0) return <span className="text-red-600 font-bold">SLA Expired</span>;
-  const min = Math.floor(timeLeft / 60);
-  const sec = timeLeft % 60;
-  return <span className="text-yellow-700">SLA: {min}:{sec.toString().padStart(2, '0')}</span>;
-}
-
 export default function BookingsPage() {
   const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Booking> | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'all' | 'cancelled' | 'live'>('all');
-  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
-  const [liveLoading, setLiveLoading] = useState(false);
   const [sortBy, setSortBy] = useState<string>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filter, setFilter] = useState<{
@@ -161,53 +141,17 @@ export default function BookingsPage() {
     reference: undefined,
     invoiceNumber: undefined,
   });
-  const [dummyInvoices, setDummyInvoices] = useState<DummyInvoice[]>([]);
-  const [timers, setTimers] = useState<Record<string, NodeJS.Timeout>>({});
-  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
-
-  // Dummy driver arrival and trip timer state
-  const [driverArrival, setDriverArrival] = useState<{ [id: string]: boolean }>({});
-  const [tripOngoing, setTripOngoing] = useState<{ [id: string]: boolean }>({});
-  const [tripAmount, setTripAmount] = useState<{ [id: string]: number }>({});
-
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [assignModal, setAssignModal] = useState<{ id: string } | null>(null);
   const [tripModal, setTripModal] = useState<{ id: string, pickup: string, drop: string } | null>(null);
   const [tripModalState, setTripModalState] = useState<{ km: number, amount: number, progress: number, running: boolean } | null>(null);
 
-  const [ongoingTrips, setOngoingTrips] = useState<{ [id: string]: { km: number, amount: number, progress: number, started: boolean } }>({});
-
   useEffect(() => {
     fetchBookings().then(data => {
       setBookings(data);
       setLoading(false);
-      if (user?.role === 'vendor') {
-        console.log('Vendor visible bookings after fetch:', data);
-      }
     });
-    if (user?.role === 'vendor') {
-      setLiveLoading(true);
-      fetchEligibleOpenMarketBookings().then(data => {
-        setLiveBookings(data);
-        setLiveLoading(false);
-      });
-    }
   }, [user]);
-
-  // Poll for new live bookings every 10 seconds (vendor only)
-  useEffect(() => {
-    if (user?.role !== 'vendor') return;
-    const interval = setInterval(() => {
-      fetchEligibleOpenMarketBookings().then(data => {
-        // Show alert if new booking(s) arrived
-        if (data.length > liveBookings.length) {
-          alert('New live booking request received!');
-        }
-        setLiveBookings(data);
-      });
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [user, liveBookings.length]);
 
   // In handleAdd, ensure all required fields are set
   async function handleAdd(data: Partial<Booking>) {
@@ -315,7 +259,6 @@ export default function BookingsPage() {
       };
       try {
         await createInvoice(invoiceData);
-        setInvoiceRefreshKey(k => k + 1);
       } catch (e) {
         // error handling only, no debug log
       }
@@ -345,7 +288,7 @@ export default function BookingsPage() {
   }).sort((a, b) => {
     const dir = sortDir === 'asc' ? 1 : -1;
     if (sortBy === 'date') {
-      return dir * (new Date(a.date).getTime() - new Date(b.date).getTime());
+      return dir * (safeTimestamp(a.date) - safeTimestamp(b.date));
     } else if (sortBy === 'guest') {
       return dir * (a.guest.localeCompare(b.guest));
     } else if (sortBy === 'status' ) {
@@ -442,7 +385,7 @@ export default function BookingsPage() {
                 filteredBookings.map(booking => (
                   <tr key={booking.id} className="border-b dark:border-gray-700">
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.guest}</td>
-                    <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{new Date(booking.date).toLocaleDateString()}</td>
+                    <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{formatDate(booking.date)}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.pickup}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.drop}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.category}</td>
@@ -521,7 +464,7 @@ export default function BookingsPage() {
                   filteredBookings.map(booking => (
                     <tr key={booking.id} className="border-b dark:border-gray-700">
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.guest}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{new Date(booking.date).toLocaleDateString()}</td>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{formatDate(booking.date)}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.pickup}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.drop}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.category}</td>
@@ -555,8 +498,6 @@ export default function BookingsPage() {
                                   Open Market
                                 </button>
                               </>
-                            ) : booking.status === 'pending' ? (
-                              <span className="text-xs text-red-500">[Debug: Accept not shown. assignModal={JSON.stringify(assignModal)}, booking.id={booking.id}]</span>
                             ) : null}
                             {booking.status === 'upcoming' && (
                               <button onClick={() => handleStartTrip(booking.id)} className="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">Start Trip</button>
@@ -572,38 +513,6 @@ export default function BookingsPage() {
                           </>
                         )}
                       </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {/* Demo Invoice Table */}
-          <div className="mt-8">
-            <h2 className="text-xl font-bold mb-2 dark:text-gray-100">Demo Invoices</h2>
-            <table className="min-w-full border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700">
-              <thead>
-                <tr>
-                  <th className="px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">Invoice #</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">Company</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">Amount</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">Status</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">Date</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">Month</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dummyInvoices.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-4 dark:text-gray-200">No demo invoices.</td></tr>
-                ) : (
-                  dummyInvoices.map(inv => (
-                    <tr key={inv.id} className="border-b dark:border-gray-700">
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{inv.invoiceNumber}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{inv.company}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">₹{inv.amount}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{inv.status}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{inv.date}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{inv.month}</td>
                     </tr>
                   ))
                 )}
@@ -659,7 +568,6 @@ export default function BookingsPage() {
       {user?.role === 'vendor' && bookings.some(b => b.status === 'ongoing') && (() => {
   const ongoing = bookings.find(b => b.status === 'ongoing');
   if (!ongoing) return null;
-  const carLeft = `${(tripModalState?.progress ?? 0) * 80 + 10}%`;
   const handleEndTripClick = async () => {
     if (ongoing.status === 'completed' || ongoing.status === 'trip_ended') return;
     await handleEndTripModal(ongoing.id);
@@ -709,7 +617,7 @@ export default function BookingsPage() {
           </div>
         </div>
         <div className="flex justify-between mb-2 text-xs opacity-80">
-          <div>Date: <span className="font-medium opacity-90">{new Date(ongoing.date).toLocaleDateString()}</span></div>
+          <div>Date: <span className="font-medium opacity-90">{formatDate(ongoing.date)}</span></div>
           <div>Pickup: <span className="font-medium opacity-90">{ongoing.pickupTime || '--:--'}</span></div>
           <div>Drop: <span className="font-medium opacity-90">{ongoing.dropTime || '--:--'}</span></div>
         </div>
