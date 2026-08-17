@@ -128,3 +128,10 @@ create index if not exists invoices_month_idx   on invoices (month);
 
 -- Enable Realtime for the bookings table (live updates on the dashboard).
 alter publication supabase_realtime add table public.bookings;
+
+-- Grants for the API roles (Supabase no longer auto-exposes new tables).
+grant all privileges on all tables in schema public to service_role;
+grant all privileges on all sequences in schema public to service_role;
+-- Realtime reads (demo scope): the publishable/anon key can read booking
+-- changes. Tenant-scoped row-level security is tracked as follow-up work.
+grant select on table public.bookings to anon, authenticated;
