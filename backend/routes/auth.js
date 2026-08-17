@@ -4,26 +4,13 @@ const bcrypt = require("bcryptjs"); // Make sure bcryptjs is installed
 const router = express.Router();
 const supabase = require("../supabase"); // Adjust path if necessary
 const { jwtSecret } = require("../config");
+const { schemas, validate } = require("../validation");
 
 console.log("Auth route loaded");
 
 // Register
-router.post("/register", async (req, res) => {
-  const { email, password, role, name } = req.body; // Expecting role in the request body
-
-  // Basic validation
-  if (!email || !password || !role) {
-    return res.status(400).json({ error: "Missing email, password, or role" });
-  }
-
-  // Validate role: ensure it's either 'company' or 'vendor'
-  if (role !== "company" && role !== "vendor") {
-    return res
-      .status(400)
-      .json({
-        error: 'Invalid role specified. Must be "company" or "vendor".',
-      });
-  }
+router.post("/register", validate(schemas.register), async (req, res) => {
+  const { email, password, role, name } = req.body;
 
   try {
     // Check if user exists
@@ -82,7 +69,7 @@ router.post("/register", async (req, res) => {
 });
 
 // Login (keep as is, or modify to return role if needed)
-router.post("/login", async (req, res) => {
+router.post("/login", validate(schemas.login), async (req, res) => {
   const { email, password } = req.body;
 
   try {
