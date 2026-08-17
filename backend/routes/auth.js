@@ -3,8 +3,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs"); // Make sure bcryptjs is installed
 const router = express.Router();
 const supabase = require("../supabase"); // Adjust path if necessary
-
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret"; // Use a strong secret
+const { jwtSecret } = require("../config");
 
 console.log("Auth route loaded");
 
@@ -62,7 +61,7 @@ router.post("/register", async (req, res) => {
     const user = data[0];
 
     // Generate JWT token
-    const token = jwt.sign({ email: user.email, role: user.role }, JWT_SECRET, {
+    const token = jwt.sign({ email: user.email, role: user.role }, jwtSecret, {
       expiresIn: "1d",
     });
 
@@ -103,7 +102,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ email: user.email, role: user.role }, JWT_SECRET, {
+    const token = jwt.sign({ email: user.email, role: user.role }, jwtSecret, {
       expiresIn: "1d",
     });
 
