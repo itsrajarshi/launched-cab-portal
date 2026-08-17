@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
 const requireRole = require('../middleware/requireRole');
+const { schemas, validate } = require('../validation');
 const supabase = require('../supabase');
 const { publishBookingRequest } = require('../rabbitmq');
 
@@ -13,7 +14,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // CREATE booking (company-only)
-router.post('/', authenticateToken, requireRole('company'), async (req, res) => {
+router.post('/', authenticateToken, requireRole('company'), validate(schemas.booking), async (req, res) => {
   const { data, error } = await supabase.from('bookings').insert([req.body]).select('*');
   if (error) return res.status(500).json({ error: error.message });
   // Attractive message format for vendors
@@ -79,7 +80,7 @@ router.post('/:id/open-market', authenticateToken, requireRole('vendor'), async 
 });
 
 // Accept open market booking (with driver/vehicle assignment) — vendor-only
-router.post('/:id/accept-open-market', authenticateToken, requireRole('vendor'), async (req, res) => {
+router.post('/:id/accept-open-market', authenticateToken, requireRole('vendor'), validate(schemas.acceptOpenMarket), async (req, res) => {
   const { vendorId, driver, vehicleType, vehicleNumber } = req.body;
   const { data, error } = await supabase
     .from('bookings')
@@ -98,29 +99,11 @@ router.post('/:id/accept-open-market', authenticateToken, requireRole('vendor'),
   res.json(data[0]);
 });
 
-// Start trip (vendor-only)
+// Start trip (vendor-only) — persists only the status transition and timestamp.
 router.post('/:id/starttrip', authenticateToken, requireRole('vendor'), async (req, res) => {
-  // Assign dummy values when trip starts (use snake_case for DB columns)
-  const dummyFields = {
-    status: 'ongoing',
-    trip_started_at: new Date().toISOString(),
-    op_km: '100',
-    total_km: '250',
-    pickup_time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-    drop_time: '',
-    toll_parking: '200',
-    night: 'No',
-    total_amount: '1500',
-    fuel_office: '300',
-    fuel_cash: '100',
-    road_tax: '50',
-    expenses: '75',
-    adv_office: '0',
-    location_link: 'https://maps.example.com',
-  };
   const { data, error } = await supabase
     .from('bookings')
-    .update(dummyFields)
+    .update({ status: 'ongoing', trip_started_at: new Date().toISOString() })
     .eq('id', req.params.id)
     .select('*');
   if (error) return res.status(500).json({ error: error.message });

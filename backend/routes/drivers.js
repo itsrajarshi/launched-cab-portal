@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
 const requireRole = require('../middleware/requireRole');
+const { schemas, validate } = require('../validation');
 const supabase = require('../supabase');
 
 // Fleet management is vendor-only.
@@ -15,7 +16,7 @@ router.get('/', async (req, res) => {
 });
 
 // CREATE driver
-router.post('/', async (req, res) => {
+router.post('/', validate(schemas.driver), async (req, res) => {
   // Map camelCase fields from frontend to snake_case for DB
   const driver = {
     name: req.body.name,
