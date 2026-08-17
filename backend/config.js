@@ -26,4 +26,8 @@ module.exports = {
   supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
   rabbitmqUrl: process.env.RABBITMQ_URL || 'amqp://localhost',
   rabbitmqQueue: process.env.RABBITMQ_BOOKING_QUEUE || 'booking_requests',
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };
