@@ -139,21 +139,18 @@ router.post('/:id/reject', authenticateToken, requireRole('vendor'), async (req,
 
 // GET open market bookings eligible for the vendor (vendor-only)
 router.get('/open-market/eligible', authenticateToken, requireRole('vendor'), async (req, res) => {
-  const user = req.user;
   // Fetch all open market bookings
   const { data, error } = await supabase.from('bookings').select('*').eq('status', 'open_market');
   if (error) return res.status(500).json({ error: error.message });
   const now = new Date();
-  // TODO: Replace with real association logic
-  // For demo: assume booking.associatedVendors is an array of vendor emails
+  // Open-market bookings are visible to all vendors for a 30-minute SLA
+  // window, first-come-first-served. A company->vendor association model is a
+  // future enhancement; once present, post-window visibility can be scoped to
+  // the company's associated vendors.
   const eligible = data.filter(b => {
     const placedAt = b.open_market_placed_at ? new Date(b.open_market_placed_at) : null;
     if (!placedAt) return false;
-    const within30 = (now.getTime() - placedAt.getTime()) < 30 * 60 * 1000;
-    if (within30 && b.associatedVendors && b.associatedVendors.includes(user.email)) return true;
-    // After 30 min, open to all vendors associated with the company
-    if (!within30 && b.companyAssociatedVendors && b.companyAssociatedVendors.includes(user.email)) return true;
-    return false;
+    return now.getTime() - placedAt.getTime() < 30 * 60 * 1000;
   });
   res.json(eligible);
 });
