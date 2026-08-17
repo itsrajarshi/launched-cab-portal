@@ -67,7 +67,7 @@ function InvoiceForm({ onClose, onSubmit, initial }: {
   );
 }
 
-export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoices?: any[], refreshKey?: number }) {
+export default function InvoicesPage() {
   const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Invoice> | null>(null);
@@ -80,10 +80,7 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
       setInvoices(data);
       setLoading(false);
     });
-  }, [refreshKey]);
-
-  // Merge dummyInvoices if provided
-  const allInvoices = dummyInvoices ? [...invoices, ...dummyInvoices] : invoices;
+  }, []);
 
   async function handleAdd(data: Partial<Invoice>) {
     const newInvoice = await createInvoice(data);
@@ -101,12 +98,12 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
     setInvoices(i => i.filter(row => row.id !== id));
   }
 
-  const filtered = allInvoices.filter(row =>
+  const filtered = invoices.filter(row =>
     tab === 'all' ? true : tab === 'monthly' ? true : row.status === tab
   );
 
   // Monthly report: group by month
-  const monthly = allInvoices.reduce((acc, inv) => {
+  const monthly = invoices.reduce((acc, inv) => {
     acc[inv.month] = acc[inv.month] || [];
     acc[inv.month].push(inv);
     return acc;
