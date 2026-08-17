@@ -27,13 +27,12 @@ for persistence, RabbitMQ for booking fan-out, and JWT for auth.
    Required: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`.
    Optional: `PORT` (default 4000), `RABBITMQ_URL`, `RABBITMQ_BOOKING_QUEUE`, `CORS_ORIGINS`.
 
-3. Create the database schema (and optional seed data) in your Supabase project:
+3. Create the database schema (and optional seed data):
 
-   ```sh
-   # via the Supabase SQL Editor, paste the contents of:
-   supabase/schema.sql
-   supabase/seed.sql   # optional demo data
-   ```
+   - **Local** (recommended): `supabase start` from the repo root — this runs
+     `supabase/migrations/*.sql` and `supabase/seed.sql` automatically.
+   - **Remote**: paste `supabase/migrations/0001_init.sql` (and optionally
+     `supabase/seed.sql`) into the Supabase SQL Editor.
 
 4. Start the server:
 

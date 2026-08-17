@@ -1,5 +1,4 @@
--- Cab Booking Portal — database schema (source of truth)
--- Apply via the Supabase SQL Editor, or: psql "$DATABASE_URL" -f supabase/schema.sql
+-- Cab Booking Portal — initial schema migration.
 --
 -- NOTE: column naming reflects the current application code. `bookings`,
 -- `drivers`, and `vehicles` use snake_case (the backend maps camelCase input),
@@ -126,3 +125,6 @@ create table if not exists invoices (
 
 create index if not exists invoices_company_idx on invoices (company);
 create index if not exists invoices_month_idx   on invoices (month);
+
+-- Enable Realtime for the bookings table (live updates on the dashboard).
+alter publication supabase_realtime add table public.bookings;
