@@ -256,8 +256,8 @@ export default function BookingsPage() {
         bookingId: booking.id,
         invoiceNumber: `INV-${booking.id}`,
         company: booking.company,
-        amount: tripModalState?.amount || booking.totalAmount || 600,
-        status: 'received',
+        amount: Number(tripModalState?.amount || booking.totalAmount || 600),
+        status: 'received' as const,
         date: booking.date,
         month: booking.date?.slice(0, 7) || '',
       };

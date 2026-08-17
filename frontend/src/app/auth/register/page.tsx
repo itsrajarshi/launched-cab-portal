@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { registerUser } from "@/lib/api";
+import type { Role } from "@/lib/types";
 
 export default function Register() {
-  const [role, setRole] = useState("company");
+  const [role, setRole] = useState<Role>("company");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,7 +44,7 @@ export default function Register() {
           <select
             className="w-full border rounded px-3 py-2 mt-1 focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-white"
             value={role}
-            onChange={e => setRole(e.target.value)}
+            onChange={e => setRole(e.target.value as Role)}
           >
             <option value="company">Company</option>
             <option value="vendor">Vendor</option>
