@@ -12,16 +12,14 @@ interface Invoice {
   status: "pending" | "received";
   date: string;
   month: string;
-  fileUrl?: string;
 }
 
 function InvoiceForm({ onClose, onSubmit, initial }: {
   onClose: () => void;
-  onSubmit: (data: Partial<Invoice>, file?: File) => void;
+  onSubmit: (data: Partial<Invoice>) => void;
   initial?: Partial<Invoice>;
 }) {
   const [form, setForm] = useState<Partial<Invoice>>(initial || {});
-  const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
 
   function validate() {
@@ -38,7 +36,7 @@ function InvoiceForm({ onClose, onSubmit, initial }: {
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length === 0) {
-      onSubmit(form, file!);
+      onSubmit(form);
       onClose();
     }
   }
@@ -64,11 +62,6 @@ function InvoiceForm({ onClose, onSubmit, initial }: {
       <div>
         <input className="w-full border rounded px-3 py-2 dark:bg-gray-900 dark:text-white dark:border-gray-700" placeholder="Month (e.g. 2025-06)" value={form.month || ""} onChange={e => setForm(f => ({ ...f, month: e.target.value }))} />
       </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Invoice File (optional)
-          <input type="file" title="Upload invoice file" onChange={e => setFile(e.target.files?.[0] || null)} className="dark:text-white" />
-        </label>
-      </div>
       <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Submit</button>
     </form>
   );
@@ -92,13 +85,12 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
   // Merge dummyInvoices if provided
   const allInvoices = dummyInvoices ? [...invoices, ...dummyInvoices] : invoices;
 
-  async function handleAdd(data: Partial<Invoice>, file?: File) {
-    // File upload not implemented in API, so ignore file for now
+  async function handleAdd(data: Partial<Invoice>) {
     const newInvoice = await createInvoice(data);
     setInvoices(i => [...i, newInvoice]);
   }
 
-  async function handleEdit(data: Partial<Invoice>, file?: File) {
+  async function handleEdit(data: Partial<Invoice>) {
     if (!data.id) return;
     const updated = await updateInvoice(data.id, data);
     setInvoices(i => i.map(row => row.id === data.id ? updated : row));
@@ -154,7 +146,6 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2">Month</th>
-                <th className="px-4 py-2">File</th>
                 <th className="px-4 py-2">Actions</th>
               </tr>
             </thead>
@@ -169,7 +160,6 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
                   </td>
                   <td className="border px-4 py-2">{row.date}</td>
                   <td className="border px-4 py-2">{row.month}</td>
-                  <td className="border px-4 py-2">{row.fileUrl ? <a href={row.fileUrl} target="_blank" className="text-blue-600 dark:text-blue-300 underline">View</a> : '-'}</td>
                   <td className="border px-4 py-2 flex gap-2">
                     <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
                   </td>
@@ -191,7 +181,6 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
                       <th className="px-4 py-2">Amount</th>
                       <th className="px-4 py-2">Status</th>
                       <th className="px-4 py-2">Date</th>
-                      <th className="px-4 py-2">File</th>
                       <th className="px-4 py-2">Actions</th>
                     </tr>
                   </thead>
@@ -205,7 +194,6 @@ export default function InvoicesPage({ dummyInvoices, refreshKey }: { dummyInvoi
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${row.status === 'received' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>{row.status}</span>
                         </td>
                         <td className="border px-4 py-2">{row.date}</td>
-                        <td className="border px-4 py-2">{row.fileUrl ? <a href={row.fileUrl} target="_blank" className="text-blue-600 dark:text-blue-300 underline">View</a> : '-'}</td>
                         <td className="border px-4 py-2 flex gap-2">
                           <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
                         </td>
