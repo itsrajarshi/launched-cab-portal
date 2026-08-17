@@ -1,17 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
+const requireRole = require('../middleware/requireRole');
 const supabase = require('../supabase');
 
+// Fleet management is vendor-only.
+router.use(authenticateToken, requireRole('vendor'));
+
 // GET all drivers
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   const { data, error } = await supabase.from('drivers').select('*');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
 // CREATE driver
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', async (req, res) => {
   // Map camelCase fields from frontend to snake_case for DB
   const driver = {
     name: req.body.name,
@@ -35,7 +39,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // UPDATE driver
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', async (req, res) => {
   const { data, error } = await supabase.from('drivers').update(req.body).eq('id', req.params.id).select('*');
   if (error) return res.status(500).json({ error: error.message });
   if (!data.length) return res.status(404).json({ error: 'Not found' });
@@ -43,7 +47,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // DELETE driver
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { error } = await supabase.from('drivers').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
   res.status(204).end();
