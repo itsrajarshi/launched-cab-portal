@@ -241,7 +241,6 @@ export default function BookingsPage() {
     setBookings(latest);
   }
   async function handleEndTripModal(id: string) {
-    if (!tripModalState) return;
     setTripModal(null);
     setTripModalState(null);
     // End trip in backend using the dedicated endpoint
@@ -252,12 +251,12 @@ export default function BookingsPage() {
     // Save invoice to Supabase when trip ends
     const booking = latest.find(b => b.id === id);
     // Check for required fields before creating invoice
-    if (booking && booking.company && booking.id && (tripModalState.amount || booking.totalAmount)) {
+    if (booking && booking.company && booking.id && (tripModalState?.amount || booking.totalAmount)) {
       const invoiceData = {
         bookingId: booking.id,
         invoiceNumber: `INV-${booking.id}`,
         company: booking.company,
-        amount: tripModalState.amount || booking.totalAmount || 600,
+        amount: tripModalState?.amount || booking.totalAmount || 600,
         status: 'received',
         date: booking.date,
         month: booking.date?.slice(0, 7) || '',
@@ -344,21 +343,6 @@ export default function BookingsPage() {
     }, 1000);
     return () => clearInterval(interval);
   }, [tripModal]);
-
-  // Auto-open Trip Modal for ongoing trip on page load (vendor only)
-  useEffect(() => {
-    if (user?.role === 'vendor' && !tripModal && bookings.length > 0) {
-      const ongoing = bookings.find(b => b.status === 'ongoing');
-      if (ongoing) {
-        setTripModal({ id: ongoing.id, pickup: ongoing.pickup, drop: ongoing.drop });
-        setTripModalState({ km: 0, amount: 0, progress: 0, running: true });
-      } else {
-        setTripModal(null);
-        setTripModalState(null);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, bookings]);
 
   return (
     <div className="p-4">
