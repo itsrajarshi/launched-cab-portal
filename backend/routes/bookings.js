@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
+const requireRole = require('../middleware/requireRole');
 const supabase = require('../supabase');
 const { publishBookingRequest } = require('../rabbitmq');
 
@@ -11,8 +12,8 @@ router.get('/', authenticateToken, async (req, res) => {
   res.json(data);
 });
 
-// CREATE booking
-router.post('/', authenticateToken, async (req, res) => {
+// CREATE booking (company-only)
+router.post('/', authenticateToken, requireRole('company'), async (req, res) => {
   const { data, error } = await supabase.from('bookings').insert([req.body]).select('*');
   if (error) return res.status(500).json({ error: error.message });
   // Attractive message format for vendors
@@ -41,8 +42,8 @@ router.post('/', authenticateToken, async (req, res) => {
   res.status(201).json(booking);
 });
 
-// UPDATE booking
-router.put('/:id', authenticateToken, async (req, res) => {
+// UPDATE booking (company-only)
+router.put('/:id', authenticateToken, requireRole('company'), async (req, res) => {
   // Map camelCase fields from frontend to snake_case for DB
   const updateFields = {};
   if (req.body.driver) updateFields.driver = req.body.driver;
@@ -58,15 +59,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
   res.json(data[0]);
 });
 
-// DELETE booking
-router.delete('/:id', authenticateToken, async (req, res) => {
+// DELETE booking (company-only)
+router.delete('/:id', authenticateToken, requireRole('company'), async (req, res) => {
   const { error } = await supabase.from('bookings').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
   res.status(204).end();
 });
 
-// Place booking in open market
-router.post('/:id/open-market', authenticateToken, async (req, res) => {
+// Place booking in open market (vendor-only)
+router.post('/:id/open-market', authenticateToken, requireRole('vendor'), async (req, res) => {
   const { data, error } = await supabase
     .from('bookings')
     .update({ status: 'open_market', open_market_placed_at: new Date().toISOString() })
@@ -77,8 +78,8 @@ router.post('/:id/open-market', authenticateToken, async (req, res) => {
   res.json(data[0]);
 });
 
-// Accept open market booking (with driver/vehicle assignment)
-router.post('/:id/accept-open-market', authenticateToken, async (req, res) => {
+// Accept open market booking (with driver/vehicle assignment) — vendor-only
+router.post('/:id/accept-open-market', authenticateToken, requireRole('vendor'), async (req, res) => {
   const { vendorId, driver, vehicleType, vehicleNumber } = req.body;
   const { data, error } = await supabase
     .from('bookings')
@@ -86,8 +87,8 @@ router.post('/:id/accept-open-market', authenticateToken, async (req, res) => {
       status: 'upcoming',
       accepted_by_vendor: vendorId,
       driver: driver || null,
-      vehicleType: vehicleType || null,
-      vehicleNumber: vehicleNumber || null,
+      vehicle_type: vehicleType || null,
+      vehicle_number: vehicleNumber || null,
       open_market_accepted_at: new Date().toISOString()
     })
     .eq('id', req.params.id)
@@ -97,8 +98,8 @@ router.post('/:id/accept-open-market', authenticateToken, async (req, res) => {
   res.json(data[0]);
 });
 
-// Start trip
-router.post('/:id/starttrip', authenticateToken, async (req, res) => {
+// Start trip (vendor-only)
+router.post('/:id/starttrip', authenticateToken, requireRole('vendor'), async (req, res) => {
   // Assign dummy values when trip starts (use snake_case for DB columns)
   const dummyFields = {
     status: 'ongoing',
@@ -127,8 +128,8 @@ router.post('/:id/starttrip', authenticateToken, async (req, res) => {
   res.json(data[0]);
 });
 
-// End trip
-router.post('/:id/endtrip', authenticateToken, async (req, res) => {
+// End trip (vendor-only)
+router.post('/:id/endtrip', authenticateToken, requireRole('vendor'), async (req, res) => {
   const { data, error } = await supabase
     .from('bookings')
     .update({ status: 'completed', trip_ended_at: new Date().toISOString() })
@@ -140,8 +141,8 @@ router.post('/:id/endtrip', authenticateToken, async (req, res) => {
   res.json(data[0]);
 });
 
-// Vendor reject/cancel booking
-router.post('/:id/reject', authenticateToken, async (req, res) => {
+// Vendor reject/cancel booking (vendor-only)
+router.post('/:id/reject', authenticateToken, requireRole('vendor'), async (req, res) => {
   const { user } = req;
   const { data, error } = await supabase
     .from('bookings')
@@ -153,10 +154,9 @@ router.post('/:id/reject', authenticateToken, async (req, res) => {
   res.json(data[0]);
 });
 
-// GET open market bookings eligible for the vendor
-router.get('/open-market/eligible', authenticateToken, async (req, res) => {
+// GET open market bookings eligible for the vendor (vendor-only)
+router.get('/open-market/eligible', authenticateToken, requireRole('vendor'), async (req, res) => {
   const user = req.user;
-  if (!user || user.role !== 'vendor') return res.status(403).json({ error: 'Forbidden' });
   // Fetch all open market bookings
   const { data, error } = await supabase.from('bookings').select('*').eq('status', 'open_market');
   if (error) return res.status(500).json({ error: error.message });
