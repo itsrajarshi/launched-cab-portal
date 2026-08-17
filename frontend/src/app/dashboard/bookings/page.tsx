@@ -51,6 +51,11 @@ function safeTimestamp(dateStr?: string): number {
   return isNaN(t) ? 0 : t;
 }
 
+function escapeCsv(value: unknown): string {
+  const s = value === undefined || value === null ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 function BookingForm({ onClose, onSubmit, initial }: {
   onClose: () => void;
   onSubmit: (data: Partial<Booking>) => void;
@@ -298,29 +303,27 @@ export default function BookingsPage() {
   });
 
   const handleExport = async () => {
-    const csvRows: string[] = [];
-    // Header row
-    csvRows.push(['ID', 'Guest', 'Date', 'Pickup', 'Drop', 'Category', 'Status', 'Driver', 'Vehicle Type', 'Vehicle Number', 'Location', 'Contact', 'Company', 'Total Amount'].join(','));
-    // Data rows
-    bookings.forEach(b => {
-      csvRows.push([
-        b.id,
-        b.guest,
-        b.date,
-        b.pickup,
-        b.drop,
-        b.category,
-        b.status,
-        b.driver,
-        b.vehicleType || '',
-        b.vehicleNumber || '',
-        b.location,
-        b.contact,
-        b.company,
-        b.totalAmount,
-      ].join(','));
-    });
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const headers = ['ID', 'Guest', 'Date', 'Pickup', 'Drop', 'Category', 'Status', 'Driver', 'Vehicle Type', 'Vehicle Number', 'Location', 'Contact', 'Company', 'Total Amount'];
+    const rows = bookings.map(b => [
+      b.id,
+      b.guest,
+      b.date,
+      b.pickup,
+      b.drop,
+      b.category,
+      b.status,
+      b.driver,
+      b.vehicleType,
+      b.vehicleNumber,
+      b.location,
+      b.contact,
+      b.company,
+      b.totalAmount,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeCsv).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, `bookings_export_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
