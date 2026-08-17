@@ -1,8 +1,6 @@
 // Simple RabbitMQ utility for publishing messages
 const amqp = require('amqplib');
-
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
-const QUEUE = process.env.RABBITMQ_BOOKING_QUEUE || 'booking_requests';
+const { rabbitmqUrl: RABBITMQ_URL, rabbitmqQueue: QUEUE } = require('./config');
 
 async function publishBookingRequest(message) {
   const conn = await amqp.connect(RABBITMQ_URL);
