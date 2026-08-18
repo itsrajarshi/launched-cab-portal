@@ -243,6 +243,31 @@ export const updateInvoice = (id: string, data: Partial<InvoiceInput>) =>
 export const deleteInvoice = (id: string) =>
   request<void>(`/invoices/${id}`, { method: "DELETE" });
 
+export const uploadInvoiceAttachment = async (id: string, file: File) => {
+  const res = await fetch(
+    `${API_URL}/invoices/${id}/attachment?filename=${encodeURIComponent(file.name)}`,
+    {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    }
+  );
+  if (!res.ok) {
+    let message = `Upload failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // ignore parse failure
+    }
+    throw new ApiError(message, res.status);
+  }
+  return res.json() as Promise<Invoice>;
+};
+
 // --- Auth ---
 export const registerUser = (data: RegisterInput) =>
   request<AuthResponse>("/auth/register", {
