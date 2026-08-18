@@ -1,0 +1,26 @@
+# Gitleaks configuration — secret scanning for the Cab Booking Portal.
+# Default rules cover common secret formats (AWS keys, GitHub tokens, private
+# keys, JWT-like tokens, etc.). Anything added here runs in CI on every push
+# and PR, and locally via scripts/install-gitleaks-hook.ps1.
+
+title = "Cab Booking Portal secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Non-secret strings that look like secrets"
+# Publicly-known demo/sample values used only for local development.
+regexes = [
+  '''super-secret-jwt-token-with-at-least-32-characters-long''',
+  '''Demo@123''',
+  '''company@demo\.com''',
+  '''vendor@demo\.com''',
+]
+paths = [
+  '''seed\.sql$''',
+  '''\.example$''',
+  '''README\.md$''',
+  '''SECURITY_AUDIT\.md$''',
+  '''ARCHITECTURE\.md$''',
+]
