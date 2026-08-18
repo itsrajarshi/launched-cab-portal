@@ -16,6 +16,9 @@ regexes = [
   '''Demo@123''',
   '''company@demo\.com''',
   '''vendor@demo\.com''',
+  '''test-jwt-secret-0123456789abcdef''',
+  '''test-service-role-key''',
+  '''password123''',
 ]
 paths = [
   '''seed\.sql$''',
