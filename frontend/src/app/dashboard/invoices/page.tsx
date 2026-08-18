@@ -1,18 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 import Modal from "@/components/Modal";
-import { fetchInvoices, createInvoice, updateInvoice, deleteInvoice } from "@/lib/api";
-
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  company: string;
-  amount: number;
-  status: "pending" | "received";
-  date: string;
-  month: string;
-}
+import {
+  useInvoices,
+  useCreateInvoice,
+  useUpdateInvoice,
+  useDeleteInvoice,
+} from "@/lib/hooks";
+import type { Invoice } from "@/lib/types";
 
 function InvoiceForm({ onClose, onSubmit, initial }: {
   onClose: () => void;
@@ -68,34 +63,25 @@ function InvoiceForm({ onClose, onSubmit, initial }: {
 }
 
 export default function InvoicesPage() {
-  const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Invoice> | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: invoices = [], isLoading: loading } = useInvoices();
+  const createMutation = useCreateInvoice();
+  const updateMutation = useUpdateInvoice();
+  const deleteMutation = useDeleteInvoice();
   const [tab, setTab] = useState<'all' | 'pending' | 'received' | 'monthly'>('all');
 
-  useEffect(() => {
-    fetchInvoices().then(data => {
-      setInvoices(data);
-      setLoading(false);
-    });
-  }, []);
-
   async function handleAdd(data: Partial<Invoice>) {
-    const newInvoice = await createInvoice(data);
-    setInvoices(i => [...i, newInvoice]);
+    await createMutation.mutateAsync(data);
   }
 
   async function handleEdit(data: Partial<Invoice>) {
     if (!data.id) return;
-    const updated = await updateInvoice(data.id, data);
-    setInvoices(i => i.map(row => row.id === data.id ? updated : row));
+    await updateMutation.mutateAsync({ id: data.id, data });
   }
 
-  async function handleDelete(id: string) {
-    await deleteInvoice(id);
-    setInvoices(i => i.filter(row => row.id !== id));
+  function handleDelete(id: string) {
+    deleteMutation.mutate(id);
   }
 
   const filtered = invoices.filter(row =>

@@ -4,6 +4,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "./client-layout";
 import { AuthProvider } from "@/context/AuthContext";
+import QueryProvider from "@/lib/query-provider";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,9 +40,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.className} antialiased bg-gray-50 dark:bg-gray-900 transition-colors page-fade min-h-screen flex flex-col`}
       >
-        <AuthProvider>
-          <ClientLayout>{children}</ClientLayout>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </AuthProvider>
+        </QueryProvider>
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

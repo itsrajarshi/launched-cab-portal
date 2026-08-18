@@ -15,14 +15,14 @@ interface ManualBooking {
 
 export default function ManualBookingPage() {
   const { user } = useAuth();
-  if (user?.role !== "vendor") {
-    return <div className="max-w-xl mx-auto mt-16 text-center text-red-500 text-lg font-semibold">Not authorized. Only vendors can add manual bookings.</div>;
-  }
-
   const [form, setForm] = useState<Partial<ManualBooking>>({});
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (user?.role !== "vendor") {
+    return <div className="max-w-xl mx-auto mt-16 text-center text-red-500 text-lg font-semibold">Not authorized. Only vendors can add manual bookings.</div>;
+  }
 
   function validate() {
     const errs: { [k: string]: string } = {};
@@ -49,7 +49,7 @@ export default function ManualBookingPage() {
       await createBooking({ ...form, source: "manual", status: "upcoming" });
       setSuccess(true);
       setForm({});
-    } catch (err: any) {
+    } catch {
       setError("Failed to create booking");
     } finally {
       setLoading(false);

@@ -1,22 +1,18 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
-import { fetchVehicles, createVehicle, updateVehicle, deleteVehicle } from "@/lib/api";
-
-interface Vehicle {
-  id: string;
-  type: string;
-  plate: string;
-  model: string;
-  availability: string;
-  condition: string;
-  insurance: string;
-}
+import {
+  useVehicles,
+  useCreateVehicle,
+  useUpdateVehicle,
+  useDeleteVehicle,
+} from "@/lib/hooks";
+import type { Vehicle } from "@/lib/types";
 
 function VehicleForm({ onClose, onSubmit, initial }: {
   onClose: () => void;
-  onSubmit: (data: Partial<Vehicle>) => Promise<any>;
+  onSubmit: (data: Partial<Vehicle>) => Promise<unknown>;
   initial?: Partial<Vehicle>;
 }) {
   const [form, setForm] = useState<Partial<Vehicle>>(initial || {});
@@ -42,8 +38,8 @@ function VehicleForm({ onClose, onSubmit, initial }: {
       try {
         await onSubmit(form);
         onClose();
-      } catch (err: any) {
-        setApiError(err?.message || "Failed to add vehicle");
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : "Failed to add vehicle");
       } finally {
         setLoading(false);
       }
@@ -84,47 +80,28 @@ function VehicleForm({ onClose, onSubmit, initial }: {
 
 export default function VehiclesPage() {
   const { user } = useAuth();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editData, setEditData] = useState<Partial<Vehicle> | null>(null);
+  const { data: vehicles = [], isLoading: loading } = useVehicles();
+  const createMutation = useCreateVehicle();
+  const updateMutation = useUpdateVehicle();
+  const deleteMutation = useDeleteVehicle();
+
   if (user?.role !== "vendor") {
     return <div className="max-w-xl mx-auto mt-16 text-center text-red-500 text-lg font-semibold">Not authorized. Only vendors can access vehicle management.</div>;
   }
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editData, setEditData] = useState<Partial<Vehicle> | null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchVehicles().then(data => {
-      // Map snake_case fields to camelCase for frontend
-      const mapped = data.map((v: any) => ({
-        ...v,
-        model: v.model,
-        availability: v.availability,
-        condition: v.condition,
-        insurance: v.insurance,
-        type: v.type,
-        plate: v.plate,
-        // Add more mappings if needed
-      }));
-      setVehicles(mapped);
-      setLoading(false);
-    });
-  }, []);
 
   async function handleAdd(data: Partial<Vehicle>) {
-    return createVehicle(data).then(newVehicle => {
-      setVehicles(v => [...v, newVehicle]);
-    });
+    return createMutation.mutateAsync(data);
   }
 
   async function handleEdit(data: Partial<Vehicle>) {
     if (!data.id) return;
-    const updated = await updateVehicle(data.id, data);
-    setVehicles(v => v.map(row => row.id === data.id ? updated : row));
+    return updateMutation.mutateAsync({ id: data.id, data });
   }
 
-  async function handleDelete(id: string) {
-    await deleteVehicle(id);
-    setVehicles(v => v.filter(row => row.id !== id));
+  function handleDelete(id: string) {
+    deleteMutation.mutate(id);
   }
 
   return (

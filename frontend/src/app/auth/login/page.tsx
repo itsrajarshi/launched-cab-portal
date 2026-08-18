@@ -26,8 +26,8 @@ export default function Login() {
       localStorage.setItem("token", result.token);
       login(result.user.email, result.user.role);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
     }
   }
 
