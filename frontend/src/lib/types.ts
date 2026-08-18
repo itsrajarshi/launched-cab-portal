@@ -209,6 +209,7 @@ export interface Invoice {
   status: InvoiceStatus;
   date: string;
   month: string;
+  fileUrl?: string;
 }
 
 export interface InvoiceInput {

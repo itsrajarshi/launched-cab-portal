@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Modal from "@/components/Modal";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
@@ -12,6 +12,8 @@ import {
   useUpdateInvoice,
   useDeleteInvoice,
 } from "@/lib/hooks";
+import { uploadInvoiceAttachment } from "@/lib/api";
+import { toast } from "sonner";
 import type { Invoice } from "@/lib/types";
 
 function InvoiceForm({ onClose, onSubmit, initial }: {
@@ -70,11 +72,14 @@ function InvoiceForm({ onClose, onSubmit, initial }: {
 export default function InvoicesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Invoice> | null>(null);
-  const { data: invoices = [], isLoading: loading, isError, error } = useInvoices();
+  const { data: invoices = [], isLoading: loading, isError, error, refetch } = useInvoices();
   const createMutation = useCreateInvoice();
   const updateMutation = useUpdateInvoice();
   const deleteMutation = useDeleteInvoice();
   const [tab, setTab] = useState<'all' | 'pending' | 'received' | 'monthly'>('all');
+  const [uploadTarget, setUploadTarget] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   async function handleAdd(data: Partial<Invoice>) {
     await createMutation.mutateAsync(data);
@@ -87,6 +92,23 @@ export default function InvoicesPage() {
 
   function handleDelete(id: string) {
     deleteMutation.mutate(id);
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTarget) return;
+    setUploadingId(uploadTarget);
+    try {
+      await uploadInvoiceAttachment(uploadTarget, file);
+      toast.success("Invoice attachment uploaded");
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingId(null);
+      setUploadTarget(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   const filtered = invoices.filter(row =>
@@ -157,6 +179,27 @@ export default function InvoicesPage() {
                   <td className="px-4 py-3">{row.date}</td>
                   <td className="px-4 py-3">{row.month}</td>
                   <td className="px-4 py-3 flex gap-2">
+                    <button
+                      className="text-blue-600 dark:text-blue-300 hover:underline disabled:opacity-50"
+                      onClick={() => {
+                        setUploadTarget(row.id);
+                        fileInputRef.current?.click();
+                      }}
+                      disabled={uploadingId === row.id}
+                      title="Upload attachment"
+                    >
+                      {uploadingId === row.id ? "Uploading..." : "📎 Upload"}
+                    </button>
+                    {row.fileUrl && (
+                      <a
+                        href={row.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-green-600 dark:text-green-400 hover:underline"
+                      >
+                        View
+                      </a>
+                    )}
                     <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
                   </td>
                 </tr>
@@ -191,6 +234,27 @@ export default function InvoicesPage() {
                         </td>
                         <td className="px-4 py-3">{row.date}</td>
                         <td className="px-4 py-3 flex gap-2">
+                          <button
+                            className="text-blue-600 dark:text-blue-300 hover:underline disabled:opacity-50"
+                            onClick={() => {
+                              setUploadTarget(row.id);
+                              fileInputRef.current?.click();
+                            }}
+                            disabled={uploadingId === row.id}
+                            title="Upload attachment"
+                          >
+                            {uploadingId === row.id ? "Uploading..." : "📎 Upload"}
+                          </button>
+                          {row.fileUrl && (
+                            <a
+                              href={row.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-green-600 dark:text-green-400 hover:underline"
+                            >
+                              View
+                            </a>
+                          )}
                           <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
                         </td>
                       </tr>
@@ -202,6 +266,13 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.png,.jpg,.jpeg,.webp"
+        className="hidden"
+        onChange={handleFileChange}
+      />
     </div>
   );
 }
