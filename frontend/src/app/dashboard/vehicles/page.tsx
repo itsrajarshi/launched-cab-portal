@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   useVehicles,
   useCreateVehicle,
@@ -82,6 +85,7 @@ export default function VehiclesPage() {
   const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Vehicle> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
   const { data: vehicles = [], isLoading: loading } = useVehicles();
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
@@ -100,18 +104,22 @@ export default function VehiclesPage() {
     return updateMutation.mutateAsync({ id: data.id, data });
   }
 
-  function handleDelete(id: string) {
-    deleteMutation.mutate(id);
+  function handleDelete() {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id);
+    setDeleteTarget(null);
   }
 
   return (
     <div className="dark:bg-gray-900 dark:text-white">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Vehicles</h1>
-        <button className="bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-900 px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400" onClick={() => { setEditData(null); setModalOpen(true); }}>
-          + Add Vehicle
-        </button>
-      </div>
+      <PageHeader
+        title="Vehicles"
+        actions={
+          <button className="bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-900 px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400" onClick={() => { setEditData(null); setModalOpen(true); }}>
+            + Add Vehicle
+          </button>
+        }
+      />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editData ? "Edit Vehicle" : "Add Vehicle"}>
         <VehicleForm
           onClose={() => setModalOpen(false)}
@@ -119,9 +127,19 @@ export default function VehiclesPage() {
           initial={editData || {}}
         />
       </Modal>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Vehicle"
+        message={`Delete vehicle ${deleteTarget?.plate ?? ""}? This cannot be undone.`}
+        busy={deleteMutation.isPending}
+        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
       <div className="overflow-x-auto rounded-lg border shadow-sm bg-white dark:bg-gray-900/90 dark:text-white dark:border-gray-700">
         {loading ? (
           <div>Loading...</div>
+        ) : vehicles.length === 0 ? (
+          <EmptyState message="No vehicles found." />
         ) : (
         <table className="min-w-full bg-white dark:bg-gray-900 border rounded shadow">
           <thead>
@@ -146,7 +164,7 @@ export default function VehiclesPage() {
                 <td className="border px-4 py-2">{row.insurance}</td>
                 <td className="border px-4 py-2 flex gap-2">
                   <button className="text-blue-600 dark:text-blue-300 hover:underline" onClick={() => { setEditData(row); setModalOpen(true); }}>Edit</button>
-                  <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
+                  <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => setDeleteTarget(row)}>Delete</button>
                 </td>
               </tr>
             ))}
