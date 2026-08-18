@@ -3,6 +3,8 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import { TableSkeleton } from "@/components/TableSkeleton";
 import { InvoiceStatusBadge } from "@/components/StatusBadge";
 import {
   useInvoices,
@@ -68,7 +70,7 @@ function InvoiceForm({ onClose, onSubmit, initial }: {
 export default function InvoicesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Invoice> | null>(null);
-  const { data: invoices = [], isLoading: loading } = useInvoices();
+  const { data: invoices = [], isLoading: loading, isError, error } = useInvoices();
   const createMutation = useCreateInvoice();
   const updateMutation = useUpdateInvoice();
   const deleteMutation = useDeleteInvoice();
@@ -121,20 +123,23 @@ export default function InvoicesPage() {
         <button className={`px-3 py-1 rounded ${tab === 'received' ? 'bg-green-600 text-white dark:bg-green-500 dark:text-gray-900' : 'bg-gray-200 dark:bg-gray-800 dark:text-gray-200'}`} onClick={() => setTab('received')}>Received</button>
         <button className={`px-3 py-1 rounded ${tab === 'monthly' ? 'bg-indigo-600 text-white dark:bg-indigo-500 dark:text-gray-900' : 'bg-gray-200 dark:bg-gray-800 dark:text-gray-200'}`} onClick={() => setTab('monthly')}>Monthly Report</button>
       </div>
-      <div className="overflow-x-auto rounded-lg border shadow-sm bg-white dark:bg-gray-900/90 dark:text-white dark:border-gray-700 mt-4">
+      {isError && (
+        <ErrorBanner message={error instanceof Error ? error.message : "Failed to load invoices"} />
+      )}
+      <div className="overflow-x-auto rounded-xl border border-blue-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-900/90 dark:text-white mt-4">
         {loading ? (
-          <div>Loading...</div>
+          <TableSkeleton cols={7} rows={5} />
         ) : tab !== 'monthly' ? (
-          <table className="min-w-full bg-white dark:bg-gray-900 border rounded shadow">
+          <table className="min-w-full bg-white dark:bg-gray-900 border-0 rounded-xl">
             <thead>
-              <tr className="bg-gray-100 dark:bg-gray-800">
-                <th className="px-4 py-2">Invoice #</th>
-                <th className="px-4 py-2">Company</th>
-                <th className="px-4 py-2">Amount</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Month</th>
-                <th className="px-4 py-2">Actions</th>
+              <tr className="bg-blue-50/70 dark:bg-gray-800">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Invoice #</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Company</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Month</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -142,16 +147,16 @@ export default function InvoicesPage() {
                 <EmptyState message="No invoices found." colSpan={7} />
               )}
               {filtered.map((row, idx) => (
-                <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
-                  <td className="border px-4 py-2">{row.invoiceNumber}</td>
-                  <td className="border px-4 py-2">{row.company}</td>
-                  <td className="border px-4 py-2">₹{row.amount}</td>
-                  <td className="border px-4 py-2">
+                <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors border-t border-gray-100 dark:border-gray-800">
+                  <td className="px-4 py-3">{row.invoiceNumber}</td>
+                  <td className="px-4 py-3">{row.company}</td>
+                  <td className="px-4 py-3">₹{row.amount}</td>
+                  <td className="px-4 py-3">
                     <InvoiceStatusBadge status={row.status} />
                   </td>
-                  <td className="border px-4 py-2">{row.date}</td>
-                  <td className="border px-4 py-2">{row.month}</td>
-                  <td className="border px-4 py-2 flex gap-2">
+                  <td className="px-4 py-3">{row.date}</td>
+                  <td className="px-4 py-3">{row.month}</td>
+                  <td className="px-4 py-3 flex gap-2">
                     <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
                   </td>
                 </tr>
@@ -159,33 +164,33 @@ export default function InvoicesPage() {
             </tbody>
           </table>
         ) : (
-          <div>
+          <div className="p-4">
             {Object.keys(monthly).length === 0 && <EmptyState message="No invoices found." />}
             {Object.entries(monthly).map(([month, invs]) => (
               <div key={month} className="mb-6">
-                <h2 className="font-bold text-lg mb-2">{month}</h2>
-                <table className="min-w-full bg-white dark:bg-gray-900 border rounded shadow">
+                <h2 className="font-bold text-lg mb-2 text-gray-700 dark:text-gray-200">{month}</h2>
+                <table className="min-w-full bg-white dark:bg-gray-900 border-0 rounded-xl">
                   <thead>
-                    <tr className="bg-gray-100 dark:bg-gray-800">
-                      <th className="px-4 py-2">Invoice #</th>
-                      <th className="px-4 py-2">Company</th>
-                      <th className="px-4 py-2">Amount</th>
-                      <th className="px-4 py-2">Status</th>
-                      <th className="px-4 py-2">Date</th>
-                      <th className="px-4 py-2">Actions</th>
+                    <tr className="bg-blue-50/70 dark:bg-gray-800">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Invoice #</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Company</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(invs as Invoice[]).map((row, idx) => (
-                      <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
-                        <td className="border px-4 py-2">{row.invoiceNumber}</td>
-                        <td className="border px-4 py-2">{row.company}</td>
-                        <td className="border px-4 py-2">₹{row.amount}</td>
-                        <td className="border px-4 py-2">
+                      <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors border-t border-gray-100 dark:border-gray-800">
+                        <td className="px-4 py-3">{row.invoiceNumber}</td>
+                        <td className="px-4 py-3">{row.company}</td>
+                        <td className="px-4 py-3">₹{row.amount}</td>
+                        <td className="px-4 py-3">
                           <InvoiceStatusBadge status={row.status} />
                         </td>
-                        <td className="border px-4 py-2">{row.date}</td>
-                        <td className="border px-4 py-2 flex gap-2">
+                        <td className="px-4 py-3">{row.date}</td>
+                        <td className="px-4 py-3 flex gap-2">
                           <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
                         </td>
                       </tr>

@@ -29,7 +29,13 @@ export default function BookingsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Booking> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
-  const { data: bookings = [], isLoading: loading, refetch } = useBookings();
+  const {
+    data: bookings = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+  } = useBookings();
   const createBookingMutation = useCreateBooking();
   const updateBookingMutation = useUpdateBooking();
   const deleteBookingMutation = useDeleteBooking();
@@ -203,6 +209,7 @@ export default function BookingsPage() {
         variant={isVendor ? "vendor" : "company"}
         bookings={filteredBookings}
         loading={loading}
+        error={isError ? (error instanceof Error ? error.message : "Failed to load bookings") : null}
         actions={(booking) =>
           isVendor ? (
             <>

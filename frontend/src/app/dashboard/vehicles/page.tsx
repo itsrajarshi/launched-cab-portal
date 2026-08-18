@@ -5,6 +5,8 @@ import Modal from "@/components/Modal";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import ErrorBanner from "@/components/ErrorBanner";
+import { TableSkeleton } from "@/components/TableSkeleton";
 import {
   useVehicles,
   useCreateVehicle,
@@ -86,7 +88,7 @@ export default function VehiclesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Vehicle> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
-  const { data: vehicles = [], isLoading: loading } = useVehicles();
+  const { data: vehicles = [], isLoading: loading, isError, error } = useVehicles();
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
   const deleteMutation = useDeleteVehicle();
@@ -135,42 +137,45 @@ export default function VehiclesPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
-      <div className="overflow-x-auto rounded-lg border shadow-sm bg-white dark:bg-gray-900/90 dark:text-white dark:border-gray-700">
-        {loading ? (
-          <div>Loading...</div>
-        ) : vehicles.length === 0 ? (
-          <EmptyState message="No vehicles found." />
-        ) : (
-        <table className="min-w-full bg-white dark:bg-gray-900 border rounded shadow">
+      {isError && (
+        <ErrorBanner message={error instanceof Error ? error.message : "Failed to load vehicles"} />
+      )}
+      <div className="overflow-x-auto rounded-xl border border-blue-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-900/90 dark:text-white">
+        <table className="min-w-full bg-white dark:bg-gray-900 border-0 rounded-xl">
           <thead>
-            <tr className="bg-gray-100 dark:bg-gray-800">
-              <th className="px-4 py-2">Type</th>
-              <th className="px-4 py-2">Plate</th>
-              <th className="px-4 py-2">Model</th>
-              <th className="px-4 py-2">Availability</th>
-              <th className="px-4 py-2">Condition</th>
-              <th className="px-4 py-2">Insurance</th>
-              <th className="px-4 py-2">Actions</th>
+            <tr className="bg-blue-50/70 dark:bg-gray-800">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Plate</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Model</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Availability</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Condition</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Insurance</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {vehicles.map(row => (
-              <tr key={row.id} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
-                <td className="border px-4 py-2">{row.type}</td>
-                <td className="border px-4 py-2">{row.plate}</td>
-                <td className="border px-4 py-2">{row.model}</td>
-                <td className="border px-4 py-2">{row.availability}</td>
-                <td className="border px-4 py-2">{row.condition}</td>
-                <td className="border px-4 py-2">{row.insurance}</td>
-                <td className="border px-4 py-2 flex gap-2">
+            {loading ? (
+              <TableSkeleton cols={7} />
+            ) : vehicles.length === 0 ? (
+              <EmptyState message="No vehicles found." colSpan={7} />
+            ) : (
+            vehicles.map(row => (
+              <tr key={row.id} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors border-t border-gray-100 dark:border-gray-800">
+                <td className="px-4 py-3">{row.type}</td>
+                <td className="px-4 py-3">{row.plate}</td>
+                <td className="px-4 py-3">{row.model}</td>
+                <td className="px-4 py-3">{row.availability}</td>
+                <td className="px-4 py-3">{row.condition}</td>
+                <td className="px-4 py-3">{row.insurance}</td>
+                <td className="px-4 py-3 flex gap-2">
                   <button className="text-blue-600 dark:text-blue-300 hover:underline" onClick={() => { setEditData(row); setModalOpen(true); }}>Edit</button>
                   <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => setDeleteTarget(row)}>Delete</button>
                 </td>
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
-        )}
       </div>
     </div>
   );

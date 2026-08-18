@@ -5,6 +5,8 @@ import Modal from "@/components/Modal";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import ErrorBanner from "@/components/ErrorBanner";
+import { TableSkeleton } from "@/components/TableSkeleton";
 import {
   useDrivers,
   useCreateDriver,
@@ -107,7 +109,7 @@ export default function DriversPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Driver> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Driver | null>(null);
-  const { data: drivers = [], isLoading: loading } = useDrivers();
+  const { data: drivers = [], isLoading: loading, isError, error } = useDrivers();
   const createMutation = useCreateDriver();
   const updateMutation = useUpdateDriver();
   const deleteMutation = useDeleteDriver();
@@ -156,40 +158,43 @@ export default function DriversPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
-      <div className="overflow-x-auto rounded-lg border shadow-sm bg-white dark:bg-gray-900/90 dark:text-white dark:border-gray-700">
-        {loading ? (
-          <div>Loading...</div>
-        ) : drivers.length === 0 ? (
-          <EmptyState message="No drivers found." />
-        ) : (
-        <table className="min-w-full bg-white dark:bg-gray-900 border rounded shadow">
+      {isError && (
+        <ErrorBanner message={error instanceof Error ? error.message : "Failed to load drivers"} />
+      )}
+      <div className="overflow-x-auto rounded-xl border border-blue-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-900/90 dark:text-white">
+        <table className="min-w-full bg-white dark:bg-gray-900 border-0 rounded-xl">
           <thead>
-            <tr className="bg-gray-100 dark:bg-gray-800">
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Contact</th>
-              <th className="px-4 py-2">License</th>
-              <th className="px-4 py-2">Vehicle Type</th>
-              <th className="px-4 py-2">Vehicle Number</th>
-              <th className="px-4 py-2">Actions</th>
+            <tr className="bg-blue-50/70 dark:bg-gray-800">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Contact</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">License</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Vehicle Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Vehicle Number</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {drivers.map(row => (
-              <tr key={row.id} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
-                <td className="border px-4 py-2">{row.name}</td>
-                <td className="border px-4 py-2">{row.contact}</td>
-                <td className="border px-4 py-2">{row.license}</td>
-                <td className="border px-4 py-2">{row.vehicleType}</td>
-                <td className="border px-4 py-2">{row.vehicleNumber}</td>
-                <td className="border px-4 py-2 flex gap-2">
+            {loading ? (
+              <TableSkeleton cols={6} />
+            ) : drivers.length === 0 ? (
+              <EmptyState message="No drivers found." colSpan={6} />
+            ) : (
+            drivers.map(row => (
+              <tr key={row.id} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors border-t border-gray-100 dark:border-gray-800">
+                <td className="px-4 py-3">{row.name}</td>
+                <td className="px-4 py-3">{row.contact}</td>
+                <td className="px-4 py-3">{row.license}</td>
+                <td className="px-4 py-3">{row.vehicleType}</td>
+                <td className="px-4 py-3">{row.vehicleNumber}</td>
+                <td className="px-4 py-3 flex gap-2">
                   <button className="text-blue-600 dark:text-blue-300 hover:underline" onClick={() => { setEditData(row); setModalOpen(true); }}>Edit</button>
                   <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => setDeleteTarget(row)}>Delete</button>
                 </td>
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
-        )}
       </div>
     </div>
   );
