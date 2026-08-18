@@ -2,29 +2,34 @@
 
 import { ReactNode } from "react";
 import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import { TableSkeleton } from "@/components/TableSkeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 const thClass =
-  "px-3 py-2 border dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100";
-const tdClass = "px-3 py-2 border dark:border-gray-700 dark:text-gray-100";
+  "px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 border-b border-blue-100 dark:border-gray-800 bg-blue-50/70 dark:bg-gray-800";
+const tdClass = "px-3 py-3 border-b border-gray-100 dark:border-gray-800";
 
 export default function BookingsTable({
   variant,
   bookings,
   loading,
+  error,
   actions,
 }: {
   variant: "vendor" | "company";
   bookings: Booking[];
   loading: boolean;
+  error?: string | null;
   actions?: (booking: Booking) => ReactNode;
 }) {
   const colSpan = variant === "company" ? 11 : 9;
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700">
+    <div className="overflow-x-auto rounded-xl border border-blue-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-900/90 dark:text-white">
+      {error && <ErrorBanner message={error} />}
+      <table className="min-w-full border-0 rounded-xl">
         <thead>
           <tr>
             <th className={thClass}>Guest</th>
@@ -42,12 +47,12 @@ export default function BookingsTable({
         </thead>
         <tbody>
           {loading ? (
-            <EmptyState message="Loading..." colSpan={colSpan} />
+            <TableSkeleton cols={colSpan} />
           ) : bookings.length === 0 ? (
             <EmptyState message="No bookings found." colSpan={colSpan} />
           ) : (
             bookings.map((booking) => (
-              <tr key={booking.id} className="border-b dark:border-gray-700">
+              <tr key={booking.id} className="hover:bg-blue-50/60 dark:hover:bg-blue-900/40 transition-colors">
                 <td className={tdClass}>{booking.guest}</td>
                 <td className={tdClass}>{formatDate(booking.date)}</td>
                 <td className={tdClass}>{booking.pickup}</td>

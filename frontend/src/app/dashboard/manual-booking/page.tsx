@@ -1,7 +1,10 @@
 "use client";
+
 import { useState } from "react";
-import { createBooking } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import Card from "@/components/Card";
+import { createBooking } from "@/lib/api";
+import { toast } from "sonner";
 
 interface ManualBooking {
   guest: string;
@@ -13,11 +16,13 @@ interface ManualBooking {
   notes?: string;
 }
 
+const inputClass =
+  "w-full border rounded px-3 py-2 dark:bg-gray-900 dark:text-white dark:border-gray-700";
+
 export default function ManualBookingPage() {
   const { user } = useAuth();
   const [form, setForm] = useState<Partial<ManualBooking>>({});
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [loading, setLoading] = useState(false);
 
   if (user?.role !== "vendor") {
@@ -37,47 +42,74 @@ export default function ManualBookingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
     const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setError(Object.values(errs).join(", "));
-      return;
-    }
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     setLoading(true);
     try {
       await createBooking({ ...form, source: "manual", status: "upcoming" });
-      setSuccess(true);
+      toast.success("Booking added to Upcoming");
       setForm({});
-    } catch {
-      setError("Failed to create booking");
+      setErrors({});
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create booking");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-lg mx-auto mt-8 p-6 bg-white rounded shadow">
-      <h1 className="text-2xl font-bold mb-4">Manual Booking</h1>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <input className="w-full border rounded px-3 py-2" placeholder="Guest Name" value={form.guest || ""} onChange={e => setForm(f => ({ ...f, guest: e.target.value }))} />
-        <input className="w-full border rounded px-3 py-2" placeholder="Date" type="date" value={form.date || ""} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-        <input className="w-full border rounded px-3 py-2" placeholder="Pickup Location" value={form.pickup || ""} onChange={e => setForm(f => ({ ...f, pickup: e.target.value }))} />
-        <input className="w-full border rounded px-3 py-2" placeholder="Drop Location" value={form.drop || ""} onChange={e => setForm(f => ({ ...f, drop: e.target.value }))} />
-        <label className="block text-sm font-medium mb-1" htmlFor="category">Car Category</label>
-        <select id="category" className="w-full border rounded px-3 py-2" value={form.category || ""} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-          <option value="">Select Car Category</option>
-          <option>Sedan</option>
-          <option>Hatchback</option>
-          <option>SUV</option>
-          <option>Luxury</option>
-        </select>
-        <input className="w-full border rounded px-3 py-2" placeholder="Contact Number" value={form.contact || ""} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} />
-        <textarea className="w-full border rounded px-3 py-2" placeholder="Notes (optional)" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" disabled={loading}>{loading ? "Submitting..." : "Confirm & Add to Upcoming"}</button>
-        {success && <div className="text-green-600">Booking added to Upcoming!</div>}
-        {error && <div className="text-red-600">{error}</div>}
-      </form>
+    <div className="p-6">
+      <Card className="max-w-lg mx-auto p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="rounded-full w-12 h-12 flex items-center justify-center text-2xl font-bold shadow-lg bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200">
+            ✍️
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold">Manual Booking</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Add a booking directly to the upcoming queue
+            </p>
+          </div>
+        </div>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <input className={inputClass} placeholder="Guest Name" value={form.guest || ""} onChange={(e) => setForm((f) => ({ ...f, guest: e.target.value }))} />
+            {errors.guest && <div className="text-red-500 text-sm mt-1">{errors.guest}</div>}
+          </div>
+          <div>
+            <input className={inputClass} placeholder="Date" type="date" value={form.date || ""} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+            {errors.date && <div className="text-red-500 text-sm mt-1">{errors.date}</div>}
+          </div>
+          <div>
+            <input className={inputClass} placeholder="Pickup Location" value={form.pickup || ""} onChange={(e) => setForm((f) => ({ ...f, pickup: e.target.value }))} />
+            {errors.pickup && <div className="text-red-500 text-sm mt-1">{errors.pickup}</div>}
+          </div>
+          <div>
+            <input className={inputClass} placeholder="Drop Location" value={form.drop || ""} onChange={(e) => setForm((f) => ({ ...f, drop: e.target.value }))} />
+            {errors.drop && <div className="text-red-500 text-sm mt-1">{errors.drop}</div>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" htmlFor="category">Car Category</label>
+            <select id="category" className={inputClass} value={form.category || ""} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+              <option value="">Select Car Category</option>
+              <option>Sedan</option>
+              <option>Hatchback</option>
+              <option>SUV</option>
+              <option>Luxury</option>
+            </select>
+            {errors.category && <div className="text-red-500 text-sm mt-1">{errors.category}</div>}
+          </div>
+          <div>
+            <input className={inputClass} placeholder="Contact Number" value={form.contact || ""} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} />
+            {errors.contact && <div className="text-red-500 text-sm mt-1">{errors.contact}</div>}
+          </div>
+          <textarea className={inputClass} placeholder="Notes (optional)" value={form.notes || ""} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 w-full" disabled={loading}>
+            {loading ? "Submitting..." : "Confirm & Add to Upcoming"}
+          </button>
+        </form>
+      </Card>
     </div>
   );
 }
