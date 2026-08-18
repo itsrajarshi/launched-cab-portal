@@ -1,4 +1,30 @@
+import type {
+  AuthResponse,
+  Booking,
+  BookingDTO,
+  BookingInput,
+  Driver,
+  DriverDTO,
+  DriverInput,
+  Invoice,
+  InvoiceInput,
+  LoginInput,
+  RegisterInput,
+  Vehicle,
+  VehicleInput,
+} from "./types";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window !== "undefined") {
@@ -10,219 +36,222 @@ function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
-function mapBookingFields(b: any) {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...getAuthHeaders(),
+      ...(options.headers as Record<string, string> | undefined),
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.error) {
+        message = body.error;
+      } else if (Array.isArray(body?.details)) {
+        message = body.details.join(", ");
+      }
+    } catch {
+      // ignore parse failure
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
+  }
+  return res.json() as Promise<T>;
+}
+
+// --- Booking field mapping (snake_case API -> camelCase UI) ---
+function mapBookingFields(b: BookingDTO): Booking {
   return {
-    ...b,
-    status: b.status || b.status || 'pending',
-    vehicleType: b.vehicle_type ?? b.vehicleType ?? '',
-    vehicleNumber: b.vehicle_number ?? b.vehicleNumber ?? '',
-    opKm: b.op_km ?? b.opKm ?? '',
-    totalKm: b.total_km ?? b.totalKm ?? '',
-    pickupTime: b.pickup_time ?? b.pickupTime ?? '',
-    dropTime: b.drop_time ?? b.dropTime ?? '',
-    tollParking: b.toll_parking ?? b.tollParking ?? '',
-    totalAmount: b.total_amount ?? b.totalAmount ?? '',
-    fuelOffice: b.fuel_office ?? b.fuelOffice ?? '',
-    fuelCash: b.fuel_cash ?? b.fuelCash ?? '',
-    roadTax: b.road_tax ?? b.roadTax ?? '',
-    advOffice: b.adv_office ?? b.advOffice ?? '',
-    locationLink: b.location_link ?? b.locationLink ?? '',
-    night: b.night ?? '',
-    expenses: b.expenses ?? '',
-    driver: b.driver ?? '',
-    company: b.company ?? '',
-    guest: b.guest ?? '',
-    contact: b.contact ?? '',
-    id: b.id ?? '',
-    referenceName: b.reference_name ?? b.referenceName ?? '',
-    invoiceNumber: b.invoice_number ?? b.invoiceNumber ?? '',
-    assocVendor: b.assoc_vendor ?? b.assocVendor ?? '',
-    open_market_placed_at: b.open_market_placed_at ?? b.open_market_placed_at ?? '',
-    accepted_by_vendor: b.accepted_by_vendor ?? b.accepted_by_vendor ?? '',
+    id: b.id ?? "",
+    guest: b.guest ?? "",
+    date: b.date ?? "",
+    pickup: b.pickup ?? "",
+    drop: b.drop ?? "",
+    category: b.category ?? "",
+    status: (b.status || "pending") as Booking["status"],
+    driver: b.driver ?? "",
+    vehicleType: b.vehicle_type ?? "",
+    vehicleNumber: b.vehicle_number ?? "",
+    location: b.location ?? "",
+    contact: b.contact ?? "",
+    company: b.company ?? "",
+    referenceName: b.reference_name ?? "",
+    invoiceNumber: b.invoice_number ?? "",
+    opKm: b.op_km ?? "",
+    totalKm: b.total_km ?? "",
+    pickupTime: b.pickup_time ?? "",
+    dropTime: b.drop_time ?? "",
+    tollParking: b.toll_parking ?? "",
+    totalAmount: b.total_amount ?? "",
+    fuelOffice: b.fuel_office ?? "",
+    fuelCash: b.fuel_cash ?? "",
+    roadTax: b.road_tax ?? "",
+    expenses: b.expenses ?? "",
+    advOffice: b.adv_office ?? "",
+    locationLink: b.location_link ?? "",
+    night: b.night ?? "",
+    assocVendor: b.assoc_vendor ?? "",
+    accepted_by_vendor: b.accepted_by_vendor ?? "",
+    open_market_placed_at: b.open_market_placed_at ?? "",
+    open_market_accepted_at: b.open_market_accepted_at ?? "",
+    created_at: b.created_at ?? "",
   };
 }
 
-export async function fetchBookings() {
-  const res = await fetch(`${API_URL}/bookings`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    console.error('fetchBookings error:', res.status, await res.text());
-    return [];
-  }
-  const data = await res.json();
-  console.debug('fetchBookings result:', data);
-  return Array.isArray(data) ? data.map(mapBookingFields) : [];
+// --- Driver field mapping (snake_case API -> camelCase UI) ---
+function mapDriverFields(d: DriverDTO): Driver {
+  return {
+    id: d.id ?? "",
+    name: d.name ?? "",
+    dateOfJoining: d.date_of_joining ?? "",
+    vehicleType: d.vehicle_type ?? "",
+    vehicleNumber: d.vehicle_number ?? "",
+    pan: d.pan ?? "",
+    aadhar: d.aadhar ?? "",
+    license: d.license ?? "",
+    contact: d.contact ?? "",
+    email: d.email ?? "",
+    address: d.address ?? "",
+    salary: d.salary ?? "",
+    department: d.department ?? "",
+    accountNumber: d.account_number ?? "",
+    ifscCode: d.ifsc_code ?? "",
+  };
 }
 
-export async function createBooking(data: any) {
-  const res = await fetch(`${API_URL}/bookings`, {
+// --- Bookings ---
+export const fetchBookings = () =>
+  request<BookingDTO[]>("/bookings").then((data) =>
+    (data ?? []).map(mapBookingFields)
+  );
+
+export const createBooking = (data: Partial<BookingInput>) =>
+  request<BookingDTO>("/bookings", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    console.error('createBooking error:', res.status, await res.text());
-    throw new Error('Failed to create booking');
-  }
-  const booking = await res.json();
-  console.debug('createBooking result:', booking);
-  return booking;
-}
+  }).then(mapBookingFields);
 
-export async function updateBooking(id: string, data: any) {
-  const res = await fetch(`${API_URL}/bookings/${id}`, {
+export const updateBooking = (id: string, data: Partial<BookingInput>) =>
+  request<BookingDTO>(`/bookings/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(data),
-  });
-  return res.json();
-}
+  }).then(mapBookingFields);
 
-export async function deleteBooking(id: string) {
-  await fetch(`${API_URL}/bookings/${id}`, { method: "DELETE", headers: getAuthHeaders() });
-}
+export const deleteBooking = (id: string) =>
+  request<void>(`/bookings/${id}`, { method: "DELETE" });
 
-export async function fetchDrivers() {
-  const res = await fetch(`${API_URL}/drivers`, { headers: getAuthHeaders() });
-  return res.json();
-}
-export async function createDriver(data: any) {
-  const res = await fetch(`${API_URL}/drivers`, {
+// --- Trip lifecycle / open market ---
+export const startTrip = (id: string) =>
+  request<BookingDTO>(`/bookings/${id}/starttrip`, { method: "POST" }).then(
+    mapBookingFields
+  );
+
+export const endTrip = (id: string) =>
+  request<BookingDTO>(`/bookings/${id}/endtrip`, { method: "POST" }).then(
+    mapBookingFields
+  );
+
+export const rejectBooking = (id: string) =>
+  request<BookingDTO>(`/bookings/${id}/reject`, { method: "POST" }).then(
+    mapBookingFields
+  );
+
+export const placeInOpenMarket = (id: string) =>
+  request<BookingDTO>(`/bookings/${id}/open-market`, { method: "POST" }).then(
+    mapBookingFields
+  );
+
+export const acceptOpenMarket = (
+  id: string,
+  vendorId: string,
+  driver?: string,
+  vehicleType?: string,
+  vehicleNumber?: string
+) =>
+  request<BookingDTO>(`/bookings/${id}/accept-open-market`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-export async function updateDriver(id: string, data: any) {
-  const res = await fetch(`${API_URL}/drivers/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-export async function deleteDriver(id: string) {
-  await fetch(`${API_URL}/drivers/${id}`, { method: "DELETE", headers: getAuthHeaders() });
-}
-
-export async function fetchVehicles() {
-  const res = await fetch(`${API_URL}/vehicles`, { headers: getAuthHeaders() });
-  return res.json();
-}
-export async function createVehicle(data: any) {
-  const res = await fetch(`${API_URL}/vehicles`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-export async function updateVehicle(id: string, data: any) {
-  const res = await fetch(`${API_URL}/vehicles/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-export async function deleteVehicle(id: string) {
-  await fetch(`${API_URL}/vehicles/${id}`, { method: "DELETE", headers: getAuthHeaders() });
-}
-
-export async function fetchInvoices() {
-  const res = await fetch(`${API_URL}/invoices`, { headers: getAuthHeaders() });
-  return res.json();
-}
-export async function createInvoice(data: any) {
-  const res = await fetch(`${API_URL}/invoices`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-export async function updateInvoice(id: string, data: any) {
-  const res = await fetch(`${API_URL}/invoices/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-export async function deleteInvoice(id: string) {
-  await fetch(`${API_URL}/invoices/${id}`, { method: "DELETE", headers: getAuthHeaders() });
-}
-
-export async function registerUser(data: any) {
-  const res = await fetch(`${API_URL}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error((await res.json()).error || 'Registration failed');
-  return res.json();
-}
-
-export async function loginUser(data: any) {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error((await res.json()).error || 'Login failed');
-  return res.json();
-}
-
-export async function placeInOpenMarket(id: string) {
-  const res = await fetch(`${API_URL}/bookings/${id}/open-market`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-  });
-  return res.json();
-}
-
-export async function acceptOpenMarket(id: string, vendorId: string, driver?: string, vehicleType?: string, vehicleNumber?: string) {
-  const res = await fetch(`${API_URL}/bookings/${id}/accept-open-market`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ vendorId, driver, vehicleType, vehicleNumber }),
-  });
-  return res.json();
-}
+  }).then(mapBookingFields);
 
-export async function startTrip(id: string) {
-  const res = await fetch(`${API_URL}/bookings/${id}/starttrip`, {
+export const fetchEligibleOpenMarketBookings = () =>
+  request<BookingDTO[]>("/bookings/open-market/eligible").then((data) =>
+    (data ?? []).map(mapBookingFields)
+  );
+
+// --- Drivers ---
+export const fetchDrivers = () =>
+  request<DriverDTO[]>("/drivers").then((data) =>
+    (data ?? []).map(mapDriverFields)
+  );
+
+export const createDriver = (data: Partial<DriverInput>) =>
+  request<DriverDTO>("/drivers", {
     method: "POST",
-    headers: getAuthHeaders(),
-  });
-  return res.json();
-}
+    body: JSON.stringify(data),
+  }).then(mapDriverFields);
 
-export async function endTrip(id: string) {
-  const res = await fetch(`${API_URL}/bookings/${id}/endtrip`, {
+export const updateDriver = (id: string, data: Partial<DriverInput>) =>
+  request<DriverDTO>(`/drivers/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  }).then(mapDriverFields);
+
+export const deleteDriver = (id: string) =>
+  request<void>(`/drivers/${id}`, { method: "DELETE" });
+
+// --- Vehicles ---
+export const fetchVehicles = () => request<Vehicle[]>("/vehicles");
+
+export const createVehicle = (data: Partial<VehicleInput>) =>
+  request<Vehicle>("/vehicles", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    throw new Error('Failed to end trip');
-  }
-  const booking = await res.json();
-  return mapBookingFields(booking);
-}
 
-export async function rejectBooking(id: string) {
-  const res = await fetch(`${API_URL}/bookings/${id}/reject`, {
+export const updateVehicle = (id: string, data: Partial<VehicleInput>) =>
+  request<Vehicle>(`/vehicles/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+export const deleteVehicle = (id: string) =>
+  request<void>(`/vehicles/${id}`, { method: "DELETE" });
+
+// --- Invoices ---
+export const fetchInvoices = () => request<Invoice[]>("/invoices");
+
+export const createInvoice = (data: Partial<InvoiceInput>) =>
+  request<Invoice>("/invoices", {
     method: "POST",
-    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
   });
-  return res.json();
-}
 
-export async function fetchEligibleOpenMarketBookings() {
-  const res = await fetch(`${API_URL}/bookings/open-market/eligible`, {
-    headers: getAuthHeaders(),
+export const updateInvoice = (id: string, data: Partial<InvoiceInput>) =>
+  request<Invoice>(`/invoices/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
   });
-  return res.json();
-}
+
+export const deleteInvoice = (id: string) =>
+  request<void>(`/invoices/${id}`, { method: "DELETE" });
+
+// --- Auth ---
+export const registerUser = (data: RegisterInput) =>
+  request<AuthResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const loginUser = (data: LoginInput) =>
+  request<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
