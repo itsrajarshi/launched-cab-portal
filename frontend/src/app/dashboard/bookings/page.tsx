@@ -20,10 +20,12 @@ import {
   useCreateInvoice,
 } from "@/lib/hooks";
 import { exportBookingsCsv, safeTimestamp } from "@/lib/format";
+import { useBookingsRealtime } from "@/lib/realtime";
 import type { Booking } from "@/lib/types";
 
 export default function BookingsPage() {
   const { user } = useAuth();
+  useBookingsRealtime();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Booking> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
