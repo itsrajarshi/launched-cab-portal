@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
 import Modal from "@/components/Modal";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import { InvoiceStatusBadge } from "@/components/StatusBadge";
 import {
   useInvoices,
   useCreateInvoice,
@@ -97,12 +100,14 @@ export default function InvoicesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Invoices</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => { setEditData(null); setModalOpen(true); }}>
-          + Submit Invoice
-        </button>
-      </div>
+      <PageHeader
+        title="Invoices"
+        actions={
+          <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => { setEditData(null); setModalOpen(true); }}>
+            + Submit Invoice
+          </button>
+        }
+      />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editData ? "Edit Invoice" : "Submit Invoice"}>
         <InvoiceForm
           onClose={() => setModalOpen(false)}
@@ -133,13 +138,16 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <EmptyState message="No invoices found." colSpan={7} />
+              )}
               {filtered.map((row, idx) => (
                 <tr key={row.id || idx} className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900">
                   <td className="border px-4 py-2">{row.invoiceNumber}</td>
                   <td className="border px-4 py-2">{row.company}</td>
                   <td className="border px-4 py-2">₹{row.amount}</td>
                   <td className="border px-4 py-2">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${row.status === 'received' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>{row.status}</span>
+                    <InvoiceStatusBadge status={row.status} />
                   </td>
                   <td className="border px-4 py-2">{row.date}</td>
                   <td className="border px-4 py-2">{row.month}</td>
@@ -152,7 +160,7 @@ export default function InvoicesPage() {
           </table>
         ) : (
           <div>
-            {Object.keys(monthly).length === 0 && <div>No invoices found.</div>}
+            {Object.keys(monthly).length === 0 && <EmptyState message="No invoices found." />}
             {Object.entries(monthly).map(([month, invs]) => (
               <div key={month} className="mb-6">
                 <h2 className="font-bold text-lg mb-2">{month}</h2>
@@ -174,7 +182,7 @@ export default function InvoicesPage() {
                         <td className="border px-4 py-2">{row.company}</td>
                         <td className="border px-4 py-2">₹{row.amount}</td>
                         <td className="border px-4 py-2">
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${row.status === 'received' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>{row.status}</span>
+                          <InvoiceStatusBadge status={row.status} />
                         </td>
                         <td className="border px-4 py-2">{row.date}</td>
                         <td className="border px-4 py-2 flex gap-2">

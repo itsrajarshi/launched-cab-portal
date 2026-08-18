@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   useDrivers,
   useCreateDriver,
@@ -103,6 +106,7 @@ export default function DriversPage() {
   const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Driver> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Driver | null>(null);
   const { data: drivers = [], isLoading: loading } = useDrivers();
   const createMutation = useCreateDriver();
   const updateMutation = useUpdateDriver();
@@ -121,18 +125,22 @@ export default function DriversPage() {
     return updateMutation.mutateAsync({ id: data.id, data });
   }
 
-  function handleDelete(id: string) {
-    deleteMutation.mutate(id);
+  function handleDelete() {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id);
+    setDeleteTarget(null);
   }
 
   return (
     <div className="dark:bg-gray-800 dark:text-white">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Drivers</h1>
-        <button className="bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-900 px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400" onClick={() => { setEditData(null); setModalOpen(true); }}>
-          + Add Driver
-        </button>
-      </div>
+      <PageHeader
+        title="Drivers"
+        actions={
+          <button className="bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-900 px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400" onClick={() => { setEditData(null); setModalOpen(true); }}>
+            + Add Driver
+          </button>
+        }
+      />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editData ? "Edit Driver" : "Add Driver"}>
         <DriverForm
           onClose={() => setModalOpen(false)}
@@ -140,11 +148,19 @@ export default function DriversPage() {
           initial={editData || {}}
         />
       </Modal>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Driver"
+        message={`Delete ${deleteTarget?.name ?? "this driver"}? This cannot be undone.`}
+        busy={deleteMutation.isPending}
+        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
       <div className="overflow-x-auto rounded-lg border shadow-sm bg-white dark:bg-gray-900/90 dark:text-white dark:border-gray-700">
         {loading ? (
           <div>Loading...</div>
         ) : drivers.length === 0 ? (
-          <div className="text-gray-500 dark:text-gray-300 p-4">No drivers found.</div>
+          <EmptyState message="No drivers found." />
         ) : (
         <table className="min-w-full bg-white dark:bg-gray-900 border rounded shadow">
           <thead>
@@ -167,7 +183,7 @@ export default function DriversPage() {
                 <td className="border px-4 py-2">{row.vehicleNumber}</td>
                 <td className="border px-4 py-2 flex gap-2">
                   <button className="text-blue-600 dark:text-blue-300 hover:underline" onClick={() => { setEditData(row); setModalOpen(true); }}>Edit</button>
-                  <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => handleDelete(row.id)}>Delete</button>
+                  <button className="text-red-600 dark:text-red-400 hover:underline" onClick={() => setDeleteTarget(row)}>Delete</button>
                 </td>
               </tr>
             ))}

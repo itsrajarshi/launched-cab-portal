@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import { StatusBadge } from "@/components/StatusBadge";
 import { saveAs } from "file-saver";
 import {
   useBookings,
@@ -300,7 +303,7 @@ export default function BookingsPage() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Bookings</h1>
+      <PageHeader title="Bookings" />
       {user?.role === 'vendor' ? (
         <div className="overflow-x-auto">
           <table className="min-w-full border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700">
@@ -319,9 +322,9 @@ export default function BookingsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-4 dark:text-gray-200">Loading...</td></tr>
+                <EmptyState message="Loading..." colSpan={9} />
               ) : filteredBookings.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-4 dark:text-gray-200">No bookings found.</td></tr>
+                <EmptyState message="No bookings found." colSpan={9} />
               ) : (
                 filteredBookings.map(booking => (
                   <tr key={booking.id} className="border-b dark:border-gray-700">
@@ -330,7 +333,7 @@ export default function BookingsPage() {
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.pickup}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.drop}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.category}</td>
-                    <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.status}</td>
+                    <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100"><StatusBadge status={booking.status} /></td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.driver || 'Not assigned'}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.vehicleType} - {booking.vehicleNumber}</td>
                     <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">
@@ -398,9 +401,9 @@ export default function BookingsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={11} className="text-center py-4 dark:text-gray-200">Loading...</td></tr>
+                  <EmptyState message="Loading..." colSpan={11} />
                 ) : filteredBookings.length === 0 ? (
-                  <tr><td colSpan={11} className="text-center py-4 dark:text-gray-200">No bookings found.</td></tr>
+                  <EmptyState message="No bookings found." colSpan={11} />
                 ) : (
                   filteredBookings.map(booking => (
                     <tr key={booking.id} className="border-b dark:border-gray-700">
@@ -409,7 +412,7 @@ export default function BookingsPage() {
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.pickup}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.drop}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.category}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.status}</td>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100"><StatusBadge status={booking.status} /></td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.driver || 'Not assigned'}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.vehicleType} - {booking.vehicleNumber}</td>
                       <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-100">{booking.company}</td>
