@@ -1,30 +1,18 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
-import { fetchDrivers, createDriver, updateDriver, deleteDriver } from "@/lib/api";
-
-interface Driver {
-  id: string; // EmployeeId
-  name: string;
-  dateOfJoining: string;
-  vehicleType: string;
-  vehicleNumber: string;
-  pan: string;
-  aadhar: string;
-  license: string;
-  contact: string;
-  email: string;
-  address: string;
-  salary: string;
-  department: string;
-  accountNumber: string;
-  ifscCode: string;
-}
+import {
+  useDrivers,
+  useCreateDriver,
+  useUpdateDriver,
+  useDeleteDriver,
+} from "@/lib/hooks";
+import type { Driver } from "@/lib/types";
 
 function DriverForm({ onClose, onSubmit, initial }: {
   onClose: () => void;
-  onSubmit: (data: Partial<Driver>) => Promise<any>;
+  onSubmit: (data: Partial<Driver>) => Promise<unknown>;
   initial?: Partial<Driver>;
 }) {
   const [form, setForm] = useState<Partial<Driver>>(initial || {});
@@ -50,8 +38,8 @@ function DriverForm({ onClose, onSubmit, initial }: {
       try {
         await onSubmit(form);
         onClose();
-      } catch (err: any) {
-        setApiError(err?.message || "Failed to add driver");
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : "Failed to add driver");
       } finally {
         setLoading(false);
       }
@@ -113,37 +101,28 @@ function DriverForm({ onClose, onSubmit, initial }: {
 
 export default function DriversPage() {
   const { user } = useAuth();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editData, setEditData] = useState<Partial<Driver> | null>(null);
+  const { data: drivers = [], isLoading: loading } = useDrivers();
+  const createMutation = useCreateDriver();
+  const updateMutation = useUpdateDriver();
+  const deleteMutation = useDeleteDriver();
+
   if (user?.role !== "vendor") {
     return <div className="max-w-xl mx-auto mt-16 text-center text-red-500 text-lg font-semibold">Not authorized. Only vendors can access driver management.</div>;
   }
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editData, setEditData] = useState<Partial<Driver> | null>(null);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDrivers().then(data => {
-      setDrivers(data);
-      setLoading(false);
-    });
-  }, []);
 
   async function handleAdd(data: Partial<Driver>) {
-    return createDriver(data).then(newDriver => {
-      console.debug('createDriver result:', newDriver);
-      setDrivers(d => [...d, newDriver]);
-    });
+    return createMutation.mutateAsync(data);
   }
 
   async function handleEdit(data: Partial<Driver>) {
     if (!data.id) return;
-    const updated = await updateDriver(data.id, data);
-    setDrivers(d => d.map(row => row.id === data.id ? updated : row));
+    return updateMutation.mutateAsync({ id: data.id, data });
   }
 
-  async function handleDelete(id: string) {
-    await deleteDriver(id);
-    setDrivers(d => d.filter(row => row.id !== id));
+  function handleDelete(id: string) {
+    deleteMutation.mutate(id);
   }
 
   return (

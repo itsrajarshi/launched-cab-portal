@@ -2,42 +2,20 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
-import { fetchBookings, createBooking, updateBooking, deleteBooking, startTrip, endTrip, fetchDrivers, fetchVehicles, createInvoice } from "@/lib/api";
 import { saveAs } from "file-saver";
+import {
+  useBookings,
+  useCreateBooking,
+  useUpdateBooking,
+  useDeleteBooking,
+  useStartTrip,
+  useEndTrip,
+  useDrivers,
+  useVehicles,
+  useCreateInvoice,
+} from "@/lib/hooks";
+import type { Booking } from "@/lib/types";
 import './boardingpass.css';
-
-interface Booking {
-  id: string;
-  guest: string;
-  date: string;
-  pickup: string;
-  drop: string;
-  category: string;
-  status: string;
-  driver: string;
-  vehicleType: string;
-  vehicleNumber: string;
-  location: string;
-  contact: string;
-  company: string;
-  accepted_by_vendor?: string; // vendor assigned after open market acceptance
-  open_market_placed_at?: string;
-  referenceName?: string;
-  invoiceNumber?: string;
-  opKm?: string;
-  totalKm?: string;
-  tollParking?: string;
-  totalAmount?: string;
-  fuelOffice?: string;
-  fuelCash?: string;
-  roadTax?: string;
-  expenses?: string;
-  advOffice?: string;
-  pickupTime?: string;
-  dropTime?: string;
-  locationLink?: string;
-  assocVendor?: string;
-}
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '';
@@ -123,11 +101,16 @@ export default function BookingsPage() {
   const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Partial<Booking> | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<string>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [filter, setFilter] = useState<{
+  const { data: bookings = [], isLoading: loading, refetch } = useBookings();
+  const createBookingMutation = useCreateBooking();
+  const updateBookingMutation = useUpdateBooking();
+  const deleteBookingMutation = useDeleteBooking();
+  const startTripMutation = useStartTrip();
+  const endTripMutation = useEndTrip();
+  const createInvoiceMutation = useCreateInvoice();
+  const sortBy: string = 'date';
+  const sortDir: 'asc' | 'desc' = 'asc';
+  const filter: {
     status?: string;
     driver?: string;
     company?: string;
@@ -136,27 +119,15 @@ export default function BookingsPage() {
     contact?: string;
     reference?: string;
     invoiceNumber?: string;
-  }>({
-    status: undefined,
-    driver: undefined,
-    company: undefined,
-    guest: undefined,
-    pickup: undefined,
-    contact: undefined,
-    reference: undefined,
-    invoiceNumber: undefined,
-  });
+  } = {};
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [assignModal, setAssignModal] = useState<{ id: string } | null>(null);
   const [tripModal, setTripModal] = useState<{ id: string, pickup: string, drop: string } | null>(null);
   const [tripModalState, setTripModalState] = useState<{ km: number, amount: number, progress: number, running: boolean } | null>(null);
 
   useEffect(() => {
-    fetchBookings().then(data => {
-      setBookings(data);
-      setLoading(false);
-    });
-  }, [user]);
+    refetch();
+  }, [user, refetch]);
 
   // In handleAdd, ensure all required fields are set
   async function handleAdd(data: Partial<Booking>) {
@@ -172,27 +143,21 @@ export default function BookingsPage() {
       pickup: data.pickup || 'Unknown Pickup',
       drop: data.drop || 'Unknown Drop',
     };
-    await createBooking(bookingData);
-    // Always fetch the latest bookings after adding
-    const latest = await fetchBookings();
-    setBookings(latest);
+    await createBookingMutation.mutateAsync(bookingData);
   }
 
   async function handleEdit(data: Partial<Booking>) {
     if (!data.id) return;
-    const updated = await updateBooking(data.id, data);
-    setBookings(b => b.map(row => row.id === data.id ? updated : row));
+    await updateBookingMutation.mutateAsync({ id: data.id, data });
   }
 
-  async function handleDelete(id: string) {
-    await deleteBooking(id);
-    setBookings(b => b.filter(row => row.id !== id));
+  function handleDelete(id: string) {
+    deleteBookingMutation.mutate(id);
   }
 
   // Vendor action handlers for status changes (persist to backend)
   async function handlePlaceInOpenMarket(id: string) {
-    const updated = await updateBooking(id, { status: 'open_market' });
-    setBookings(b => b.map(row => row.id === id ? updated : row));
+    await updateBookingMutation.mutateAsync({ id, data: { status: 'open_market' } });
   }
   // Accept handler now opens assign modal
   async function handleAcceptOpenMarket(id: string) {
@@ -203,27 +168,24 @@ export default function BookingsPage() {
     setAcceptingId(id);
     try {
       const prev = bookings.find(b => b.id === id);
-      const updated = await updateBooking(id, {
-        status: 'upcoming',
-        driver,
-        vehicle_type: vehicleType,
-        vehicle_number: vehicleNumber,
-        company: prev?.company || 'Unknown Company',
-        guest: prev?.guest || 'Unknown Guest',
-        contact: prev?.contact || 'Unknown Contact',
-        category: prev?.category || 'Sedan',
-        date: prev?.date || new Date().toISOString().slice(0, 10),
-        pickup: prev?.pickup || 'Unknown Pickup',
-        drop: prev?.drop || 'Unknown Drop',
+      await updateBookingMutation.mutateAsync({
+        id,
+        data: {
+          status: 'upcoming',
+          driver,
+          vehicle_type: vehicleType,
+          vehicle_number: vehicleNumber,
+          company: prev?.company || 'Unknown Company',
+          guest: prev?.guest || 'Unknown Guest',
+          contact: prev?.contact || 'Unknown Contact',
+          category: prev?.category || 'Sedan',
+          date: prev?.date || new Date().toISOString().slice(0, 10),
+          pickup: prev?.pickup || 'Unknown Pickup',
+          drop: prev?.drop || 'Unknown Drop',
+        },
       });
-      const latest = await fetchBookings();
-      setBookings(latest);
       setAssignModal(null);
-      setLoading(true); // force refresh
-      const refreshed = await fetchBookings();
-      setBookings(refreshed);
-      setLoading(false);
-    } catch (e) {
+    } catch {
       alert('Failed to assign driver/vehicle. Please try again.');
     } finally {
       setAcceptingId(null);
@@ -236,20 +198,15 @@ export default function BookingsPage() {
     }
     setTripModal({ id, pickup: booking.pickup, drop: booking.drop });
     setTripModalState({ km: 0, amount: 0, progress: 0, running: true });
-    await startTrip(id); // Use correct API for starting trip
-    const latest = await fetchBookings();
-    setBookings(latest);
+    await startTripMutation.mutateAsync(id);
   }
   async function handleEndTripModal(id: string) {
     setTripModal(null);
     setTripModalState(null);
     // End trip in backend using the dedicated endpoint
-    await endTrip(id);
-    // Fetch latest bookings to sync UI with backend
-    const latest = await fetchBookings();
-    setBookings(latest);
+    await endTripMutation.mutateAsync(id);
     // Save invoice to Supabase when trip ends
-    const booking = latest.find(b => b.id === id);
+    const booking = bookings.find(b => b.id === id);
     // Check for required fields before creating invoice
     if (booking && booking.company && booking.id && (tripModalState?.amount || booking.totalAmount)) {
       const invoiceData = {
@@ -262,21 +219,18 @@ export default function BookingsPage() {
         month: booking.date?.slice(0, 7) || '',
       };
       try {
-        await createInvoice(invoiceData);
-      } catch (e) {
+        await createInvoiceMutation.mutateAsync(invoiceData);
+      } catch {
         // error handling only, no debug log
       }
     } else {
       alert('Cannot create invoice: booking is missing company, amount, or other required fields.');
     }
   }
-  
+
   // Manual refresh function for bookings (e.g., after editing or deleting)
-  async function handleRefresh() {
-    setLoading(true);
-    const latest = await fetchBookings();
-    setBookings(latest);
-    setLoading(false);
+  function handleRefresh() {
+    refetch();
   }
 
   // Sort and filter logic for bookings
@@ -342,7 +296,7 @@ export default function BookingsPage() {
       if (t >= 10) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
-  }, [tripModal]);
+  }, [tripModal, tripModalState?.running]);
 
   return (
     <div className="p-4">
@@ -556,9 +510,8 @@ export default function BookingsPage() {
   const ongoing = bookings.find(b => b.status === 'ongoing');
   if (!ongoing) return null;
   const handleEndTripClick = async () => {
-    if (ongoing.status === 'completed' || ongoing.status === 'trip_ended') return;
+    if (ongoing.status === 'completed') return;
     await handleEndTripModal(ongoing.id);
-    setBookings(prev => prev.map(row => row.id === ongoing.id ? { ...row, status: 'completed' } : row));
     setTripModalState(prev => prev ? { ...prev, running: false, progress: 1 } : prev);
     // Fade out the boarding pass card
     const card = document.querySelector('.boardingpass-card');
@@ -631,10 +584,10 @@ export default function BookingsPage() {
         <div className="flex justify-center mt-4">
           <button
             className="bg-purple-600 text-white px-6 py-2 rounded-lg shadow hover:bg-purple-700 text-base font-semibold transition animate-pulse"
-            disabled={ongoing.status === 'completed' || ongoing.status === 'trip_ended'}
+            disabled={ongoing.status === 'completed'}
             onClick={handleEndTripClick}
           >
-            {ongoing.status === 'completed' || ongoing.status === 'trip_ended' ? 'Trip Ended' : 'End Trip'}
+            {ongoing.status === 'completed' ? 'Trip Ended' : 'End Trip'}
           </button>
         </div>
       </div>
@@ -648,15 +601,11 @@ export default function BookingsPage() {
 
 // Add AssignForm component (must be above export default)
 function AssignForm({ onAssign, onClose }: { onAssign: (driver: string, vehicleType: string, vehicleNumber: string) => void, onClose: () => void }) {
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  const { data: drivers = [] } = useDrivers();
+  const { data: vehicles = [] } = useVehicles();
   const [driver, setDriver] = useState("");
   const [vehicleType, setVehicleType] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
-  useEffect(() => {
-    fetchDrivers().then(setDrivers);
-    fetchVehicles().then(setVehicles);
-  }, []);
   return (
     <form onSubmit={e => { e.preventDefault(); onAssign(driver, vehicleType, vehicleNumber); }} className="space-y-4">
       <div>

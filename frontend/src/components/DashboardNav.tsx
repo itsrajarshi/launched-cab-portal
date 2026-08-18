@@ -2,15 +2,7 @@
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
-import { FaCar, FaUserTie, FaCarSide, FaFileInvoice, FaUser, FaSignOutAlt, FaClipboardList, FaHome } from "react-icons/fa";
-
-const navLinks = [
-  { href: "/dashboard/bookings", label: "Bookings", icon: <FaClipboardList /> },
-  { href: "/dashboard/drivers", label: "Drivers", icon: <FaUserTie /> },
-  { href: "/dashboard/vehicles", label: "Vehicles", icon: <FaCarSide /> },
-  { href: "/dashboard/invoices", label: "Invoices", icon: <FaFileInvoice /> },
-  { href: "/dashboard/profile", label: "Profile", icon: <FaUser /> },
-];
+import { FaUserTie, FaCarSide, FaFileInvoice, FaUser, FaSignOutAlt, FaClipboardList, FaHome } from "react-icons/fa";
 
 export default function DashboardNav({ role }: { role: "company" | "vendor" }) {
   const { logout } = useAuth();
