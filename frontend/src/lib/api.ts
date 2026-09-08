@@ -154,10 +154,13 @@ export const startTrip = (id: string) =>
     mapBookingFields
   );
 
-export const endTrip = (id: string) =>
-  request<BookingDTO>(`/bookings/${id}/endtrip`, { method: "POST" }).then(
-    mapBookingFields
-  );
+// Ending a trip and billing for it happen together, server-side, in one
+// request — see backend/routes/bookings.js's /:id/endtrip for why.
+export const endTrip = (id: string, data: { amount: number; km?: number }) =>
+  request<{ booking: BookingDTO; invoice: unknown }>(`/bookings/${id}/endtrip`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }).then((res) => mapBookingFields(res.booking));
 
 export const rejectBooking = (id: string) =>
   request<BookingDTO>(`/bookings/${id}/reject`, { method: "POST" }).then(
@@ -169,16 +172,17 @@ export const placeInOpenMarket = (id: string) =>
     mapBookingFields
   );
 
+// Which vendor is accepting comes from the caller's own token on the
+// server — no vendorId is sent from the client.
 export const acceptOpenMarket = (
   id: string,
-  vendorId: string,
   driver?: string,
   vehicleType?: string,
   vehicleNumber?: string
 ) =>
   request<BookingDTO>(`/bookings/${id}/accept-open-market`, {
     method: "POST",
-    body: JSON.stringify({ vendorId, driver, vehicleType, vehicleNumber }),
+    body: JSON.stringify({ driver, vehicleType, vehicleNumber }),
   }).then(mapBookingFields);
 
 export const fetchEligibleOpenMarketBookings = () =>

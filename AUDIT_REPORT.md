@@ -43,14 +43,21 @@ cross-referenced to `ROADMAP.md`, `TECH_DEBT.md`, and the other domain reports.
 
 ## 4. Security
 
-See `SECURITY_AUDIT.md` for the full list with severities. Highlights: hardcoded `JWT_SECRET`
-fallback, no role scoping (cross-tenant data exposure), orphan login routes with hardcoded
-credentials, permissive CORS, no rate limiting, no input validation.
+See `SECURITY_AUDIT.md` for the full list with severities. All Critical items are now resolved,
+most recently: no row scoping (any authenticated user could read/write every booking, invoice,
+driver and vehicle — fixed via `user_id`/`vendor_id` FKs and per-route filtering), the anon key's
+unrestricted read on `bookings` (fixed via RLS + a column-level grant), and two vendor-flow
+endpoints that 403'd against their own backend routes. Remaining High items (token revocation,
+RabbitMQ broker credentials) are documented trade-offs, not oversights.
 
 ## 5. Database
 
-See `DATABASE_REVIEW.md`. Highlights: no schema/migrations in repo, one wide `bookings` table,
-no FKs/indexes/constraints/RLS, snake_case vs camelCase drift between route code and columns.
+See `DATABASE_REVIEW.md`. The schema now has foreign keys (`bookings`/`drivers`/`vehicles`/
+`invoices` all reference `users`; `invoices` also references `bookings`), the indexes those FKs
+need, a unique constraint on `vehicles.plate`, and one RLS policy (on `bookings`, for the anon-key
+exposure above). The wide `bookings` table and its partial 3NF violation are unchanged and
+addressed separately (see `DATABASE_REVIEW.md`'s normal-form note) — normalizing further is a
+deliberate trade-off, not an oversight.
 
 ## 6. API design
 
@@ -60,8 +67,9 @@ no FKs/indexes/constraints/RLS, snake_case vs camelCase drift between route code
 | 2 | Status codes mostly correct, but 404 handling only inside `update`/`delete` (not `get`) | 🟡 |
 | 3 | No pagination/filtering/sorting query params — filtering done client-side | 🟠 |
 | 4 | No API documentation (no OpenAPI/Swagger) | 🟡 |
-| 5 | `starttrip` writes fake/hardcoded billing values (`op_km:'100'`, `total_amount:'1500'`, …) | 🔴 |
-| 6 | Open-market endpoints reference non-existent camelCase columns (`associatedVendors`, `companyAssociatedVendors`) | 🔴 |
+| 5 | ~~`starttrip` writes fake/hardcoded billing values~~ — not present in the codebase as of this revision. `endtrip` now takes a validated `{amount, km}` and persists real values to `bookings.total_amount`/`total_km` (previously `numeric`-typed columns that no route ever wrote). | ✅ Resolved |
+| 6 | ~~Open-market endpoints reference non-existent camelCase columns~~ — not present in the codebase as of this revision; this finding was already stale by the time it was last read. | ✅ Not reproducible |
+| 7 | ~~Two vendor-flow endpoints ("Open Market", "Accept & Assign", manual booking) called the wrong (company-only) backend route and 403'd for a vendor~~ — resolved: wired to their dedicated routes, verified live end to end. | ✅ Resolved |
 
 ## 7. UI/UX
 

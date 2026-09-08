@@ -17,7 +17,9 @@ import {
   useDeleteBooking,
   useStartTrip,
   useEndTrip,
-  useCreateInvoice,
+  usePlaceInOpenMarket,
+  useAcceptOpenMarket,
+  useRejectBooking,
 } from "@/lib/hooks";
 import { exportBookingsCsv, safeTimestamp } from "@/lib/format";
 import { useBookingsRealtime } from "@/lib/realtime";
@@ -41,7 +43,9 @@ export default function BookingsPage() {
   const deleteBookingMutation = useDeleteBooking();
   const startTripMutation = useStartTrip();
   const endTripMutation = useEndTrip();
-  const createInvoiceMutation = useCreateInvoice();
+  const placeInOpenMarketMutation = usePlaceInOpenMarket();
+  const acceptOpenMarketMutation = useAcceptOpenMarket();
+  const rejectBookingMutation = useRejectBooking();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [assignModal, setAssignModal] = useState<{ id: string } | null>(null);
   const [tripModal, setTripModal] = useState<{ id: string } | null>(null);
@@ -83,35 +87,23 @@ export default function BookingsPage() {
   }
 
   async function handlePlaceInOpenMarket(id: string) {
-    await updateBookingMutation.mutateAsync({ id, data: { status: "open_market" } });
+    await placeInOpenMarketMutation.mutateAsync(id);
   }
 
   async function handleAssign(id: string, driver: string, vehicleType: string, vehicleNumber: string) {
     setAcceptingId(id);
     try {
-      const prev = bookings.find((b) => b.id === id);
-      await updateBookingMutation.mutateAsync({
-        id,
-        data: {
-          status: "upcoming",
-          driver,
-          vehicle_type: vehicleType,
-          vehicle_number: vehicleNumber,
-          company: prev?.company || "Unknown Company",
-          guest: prev?.guest || "Unknown Guest",
-          contact: prev?.contact || "Unknown Contact",
-          category: prev?.category || "Sedan",
-          date: prev?.date || new Date().toISOString().slice(0, 10),
-          pickup: prev?.pickup || "Unknown Pickup",
-          drop: prev?.drop || "Unknown Drop",
-        },
-      });
+      await acceptOpenMarketMutation.mutateAsync({ id, driver, vehicleType, vehicleNumber });
       setAssignModal(null);
     } catch {
-      alert("Failed to assign driver/vehicle. Please try again.");
+      // error already surfaced via the mutation's onError toast
     } finally {
       setAcceptingId(null);
     }
+  }
+
+  async function handleReject(id: string) {
+    await rejectBookingMutation.mutateAsync(id);
   }
 
   async function handleStartTrip(id: string) {
@@ -123,28 +115,14 @@ export default function BookingsPage() {
   }
 
   async function handleEndTripModal(id: string) {
+    // Capture the simulated trip snapshot before clearing it — the server
+    // completes the booking and creates its invoice in one request, so
+    // there's no longer a second call whose failure could go unnoticed.
+    const amount = Number(tripModalState?.amount || 600);
+    const km = tripModalState?.km;
     setTripModal(null);
     setTripModalState(null);
-    await endTripMutation.mutateAsync(id);
-    const booking = bookings.find((b) => b.id === id);
-    if (booking && booking.company && booking.id && (tripModalState?.amount || booking.totalAmount)) {
-      const invoiceData = {
-        bookingId: booking.id,
-        invoiceNumber: `INV-${booking.id}`,
-        company: booking.company,
-        amount: Number(tripModalState?.amount || booking.totalAmount || 600),
-        status: "received" as const,
-        date: booking.date,
-        month: booking.date?.slice(0, 7) || "",
-      };
-      try {
-        await createInvoiceMutation.mutateAsync(invoiceData);
-      } catch {
-        // invoice creation is best-effort after a trip ends
-      }
-    } else {
-      alert("Cannot create invoice: booking is missing company, amount, or other required fields.");
-    }
+    await endTripMutation.mutateAsync({ id, amount, km });
   }
 
   function handleRefresh() {
@@ -213,7 +191,7 @@ export default function BookingsPage() {
         actions={(booking) =>
           isVendor ? (
             <>
-              {booking.status === "pending" && (
+              {(booking.status === "pending" || booking.status === "open_market") && (
                 <>
                   <button
                     onClick={() => setAssignModal({ id: booking.id })}
@@ -222,11 +200,19 @@ export default function BookingsPage() {
                   >
                     {acceptingId === booking.id ? "Accepting..." : "Accept & Assign"}
                   </button>
+                  {booking.status === "pending" && (
+                    <button
+                      onClick={() => handlePlaceInOpenMarket(booking.id)}
+                      className="bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700 mr-1"
+                    >
+                      Open Market
+                    </button>
+                  )}
                   <button
-                    onClick={() => handlePlaceInOpenMarket(booking.id)}
-                    className="bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700"
+                    onClick={() => handleReject(booking.id)}
+                    className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
                   >
-                    Open Market
+                    Reject
                   </button>
                 </>
               )}

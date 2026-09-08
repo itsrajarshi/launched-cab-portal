@@ -12,19 +12,20 @@ Built as a portfolio project, it demonstrates a production-minded full-stack imp
 
 | Area | Company | Vendor |
 |------|---------|--------|
-| Bookings | Create, edit, delete, export CSV, live updates | Accept & assign, open-market placement, start/end trips |
-| Open Market | — | Place unfulfilled bookings for 30-min SLA pickup by any vendor |
-| Drivers & Vehicles | — | Full CRUD |
-| Invoices | View + monthly report | Submit, attach files (Supabase Storage), mark received |
+| Bookings | Create, edit, delete, export CSV, live updates — scoped to your own bookings | Accept & assign, open-market placement, start/end trips — sees unassigned requests plus its own |
+| Open Market | — | Place unfulfilled bookings for 30-min SLA pickup by any vendor; race-safe (status-guarded updates, not read-then-write) |
+| Drivers & Vehicles | — | Full CRUD, scoped to your own fleet |
+| Invoices | View + monthly report — scoped to your own bookings | Submit, attach files (Supabase Storage), mark received; created atomically with trip completion |
 | Real-time | Bookings stream via Supabase Realtime + sonner toasts | Same live feed |
-| Auth | JWT login / register | Role-gated routes (backend + UI) |
+| Notifications | New bookings publish to RabbitMQ, consumed by a separate worker process (`npm run worker`) with manual ack + dead-letter queue | Same |
+| Auth | JWT login / register (JWT carries the user id) | Role-gated routes (backend row-scoped by id + UI) |
 
 ## Tech Stack
 
 - **Frontend** — Next.js 15 (App Router, React 19, TypeScript, Tailwind CSS), TanStack React Query, sonner toasts, Supabase Realtime
-- **Backend** — Node.js, Express 5, zod validation, Helmet, CORS, express-rate-limit, JWT (jsonwebtoken), bcryptjs
-- **Data & messaging** — Supabase (PostgreSQL + Storage + Realtime), RabbitMQ (`amqplib`)
-- **Testing** — Jest + Supertest (35 tests), Gitleaks + GitGuardian secret scanning in CI
+- **Backend** — Node.js, Express 5, zod validation, Helmet, CORS, express-rate-limit (all of `/api`), JWT (jsonwebtoken), bcryptjs
+- **Data & messaging** — Supabase (PostgreSQL + Storage + Realtime, with foreign keys and one RLS policy), RabbitMQ (`amqplib`) with a real consumer (`backend/worker.js`)
+- **Testing** — Jest + Supertest (50+ tests), Gitleaks + GitGuardian secret scanning in CI
 
 ## Architecture
 
@@ -32,13 +33,16 @@ Built as a portfolio project, it demonstrates a production-minded full-stack imp
 Browser (Next.js)
   ├─ React Query ──── typed REST client ────> Express API (:4000)
   │                                             ├─ JWT auth + role middleware
-  │                                             ├─ zod validation
+  │                                             ├─ row-scoped queries (user_id / vendor_id)
+  │                                             ├─ zod validation (create + update schemas)
   │                                             ├─ Supabase service-role client (Postgres)
   │                                             └─ RabbitMQ publish (booking requests)
+  │                                                   └─> worker.js (separate process, manual ack + DLQ)
   └─ Supabase Realtime <── postgres_changes ─── Supabase (Postgres :54321 / DB :54322)
+                                                   RLS-gated to (id, status, created_at) for anon
 ```
 
-The frontend never talks to Postgres directly for writes: all mutations go through the authenticated Express API. Realtime is read-only and used to invalidate the React Query cache so the dashboard updates without polling.
+The frontend never talks to Postgres directly for writes: all mutations go through the authenticated Express API. Realtime is read-only and used to invalidate the React Query cache so the dashboard updates without polling — it never reads the row payload itself, which is why the anon key's RLS grant only needs to expose `id`/`status`/`created_at`, not the full row.
 
 ## Project Structure
 
@@ -46,13 +50,14 @@ The frontend never talks to Postgres directly for writes: all mutations go throu
 backend/                Express API
   routes/               auth, bookings, drivers, vehicles, invoices
   middleware/           authenticateToken, requireRole
-  tests/                jest suites (validation, auth, role, bookings)
-  validation.js         zod schemas
+  tests/                jest suites (validation, auth, role, bookings, worker)
+  validation.js         zod schemas (create + update, per resource)
   config.js             fail-fast env config
-  rabbitmq.js           booking request publisher
+  rabbitmq.js           queue topology + publisher (shared with worker.js)
+  worker.js             RabbitMQ consumer — separate process, `npm run worker`
 supabase/
-  migrations/           0001_init.sql (schema + grants + realtime), 0002_invoice_attachments.sql
-  seed.sql              demo users + sample drivers
+  migrations/           0001_init.sql, 0002_invoice_attachments.sql, 0003_relational_integrity.sql
+  seed.sql              demo users + sample drivers/vehicles (linked to the demo vendor)
 frontend/src/
   lib/                  api.ts (typed client), hooks.ts (React Query), realtime.ts, types.ts, format.ts
   components/           shared UI (Card, Modal, StatusBadge, ConfirmDialog, ...) + bookings/*
@@ -88,6 +93,14 @@ copy .env.example .env   # fill from `supabase status -o env` (SUPABASE_URL, SUP
 npm run dev              # http://localhost:4000
 ```
 
+In a second terminal, start the RabbitMQ consumer — booking creation publishes to
+`booking_requests`, and nothing reads it unless this is also running:
+
+```powershell
+cd backend
+npm run worker
+```
+
 ### 4. Frontend
 
 ```powershell
@@ -111,16 +124,17 @@ npm run dev              # http://localhost:3000
 
 ```powershell
 cd backend
-npm test                  # 35 tests (validation, auth, role middleware, booking routes)
+npm test                  # 47 tests (validation, auth, role middleware, booking routes, worker)
 npm run test:coverage
 ```
 
 ## Security Notes
 
 - Secrets live only in gitignored `.env` / `.env.local` / `supabase/.temp`; every push and PR is scanned by Gitleaks and GitGuardian.
-- Backend validates all inputs with zod, rate-limits auth routes, and enforces role-based authorization on every route.
-- Supabase grants are explicit (no default auto-expose); Realtime reads are demo-scoped with RLS/tenant scoping tracked as follow-up.
-- See `SECURITY_AUDIT.md` for the full audit and remaining hardening items.
+- Backend validates all inputs with zod (create + update schemas), rate-limits all of `/api`, and enforces role-based authorization on every route.
+- Every read and write is scoped to the caller: a company sees only its own bookings/invoices; a vendor sees unassigned requests plus its own fleet/bookings/invoices. Verified live — a second registered company sees zero bookings from the first.
+- Supabase grants are explicit (no default auto-expose); the anon key used by the browser's Realtime subscription is now RLS-gated to `(id, status, created_at)` on `bookings` — it never had access to guest names, contact numbers, or pricing beyond what this PR closed.
+- See `SECURITY_AUDIT.md` for the full audit and remaining hardening items (token revocation, RabbitMQ credentials).
 
 ## Documentation
 
@@ -129,8 +143,12 @@ npm run test:coverage
 - `PRODUCTION_CHECKLIST.md` — go-live checklist
 - `ROADMAP.md` — feature roadmap
 - `docs/WORKFLOW.md` — end-to-end workflow notes
+- `INTERVIEW_STUDY_GUIDE.md` — a from-the-code reference covering the schema, auth, RabbitMQ, API surface, the trade-offs behind each stack choice, and honest weak points
 - `Demonstration (1).mp4` — demo walkthrough
 
 ## Roadmap
 
-Map/GPS integration, background workers for long-running tasks, tenant-scoped RLS, and a containerized production deployment are the natural next steps (see `ROADMAP.md`).
+Row-level authorization, a real foreign-key schema, and a consumed RabbitMQ queue (all previously
+open items) landed in `feat/relational-integrity-and-authz`. Map/GPS integration, a booking
+timeline/audit table (`trip_events`), and a containerized production deployment are the natural
+next steps — see `ROADMAP.md`.

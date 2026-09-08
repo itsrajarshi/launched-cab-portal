@@ -26,15 +26,17 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Medium · 🔵 Low
 
 | # | Debt | Location | Roadmap |
 |---|------|----------|---------|
-| 14 | `JWT_SECRET || 'supersecret'` duplicated in 2 files | `auth.js`, `authenticateToken.js` | Critical #1 |
-| 15 | No role/tenant scoping on any list endpoint | all routes | Critical #3 |
-| 16 | Fake `starttrip` billing snapshot | `bookings.js` | Critical #5 |
-| 17 | Open-market filters on non-existent camelCase columns | `bookings.js` | Critical #7 |
-| 18 | No input validation / mass assignment | all routes | Critical #5 |
-| 19 | No global error handler or 404 | `index.js` | Critical #6 |
-| 20 | Connect-per-publish + 500ms close race in RabbitMQ | `rabbitmq.js` | Critical #6 |
-| 21 | No logger | all routes | High |
-| 22 | `postgres` npm dep unused | `package.json` | Medium #23 |
+| 14 | `JWT_SECRET || 'supersecret'` duplicated in 2 files | `auth.js`, `authenticateToken.js` | Critical #1 — ✅ resolved |
+| 15 | No role/tenant scoping on any list endpoint | all routes | Critical #3 — ✅ resolved (`feat/relational-integrity-and-authz`): JWT carries `id`; every route filters by `user_id`/`vendor_id`. |
+| 16 | Fake `starttrip` billing snapshot | `bookings.js` | Critical #5 — ✅ resolved: `endtrip` now takes and persists a real `{amount, km}`. |
+| 17 | Open-market filters on non-existent camelCase columns | `bookings.js` | Critical #7 — not present in the codebase as of this revision; likely already fixed in an earlier PR this entry was never updated for. |
+| 18 | No input validation / mass assignment | all routes | Critical #5 — ✅ resolved for `PUT` routes (previously had zero validation on any resource); create routes deliberately keep `.passthrough()`, see `SECURITY_AUDIT.md` #16. |
+| 19 | No global error handler or 404 | `index.js` | Critical #6 — ✅ resolved |
+| 20 | Connect-per-publish + 500ms close race in RabbitMQ | `rabbitmq.js` | Critical #6 — still true; unrelated to this PR, which added the missing consumer (`worker.js`) rather than changing the publisher's connection lifecycle. |
+| 21 | No logger | all routes | High — still open |
+| 22 | `postgres` npm dep unused | `package.json` | Medium #23 — still true; left alone deliberately (removing an unrelated dependency wasn't part of this PR's scope). |
+| 29 | **RabbitMQ queue had no consumer** — messages accumulated indefinitely | `backend/rabbitmq.js` | New — ✅ resolved: `backend/worker.js`, manual ack, `prefetch(5)`, dead-letter queue. |
+| 30 | Drivers/vehicles PUT routes sent camelCase field names straight to snake_case columns (would fail against a real DB) | `drivers.js` | New — ✅ resolved: PUT now maps camelCase → snake_case, same as POST already did. |
 
 ## Repository / process
 

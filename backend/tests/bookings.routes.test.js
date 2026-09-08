@@ -11,8 +11,8 @@ const rabbit = require("../rabbitmq");
 const { jwtSecret } = require("../config");
 const app = require("../index");
 
-const companyToken = jwt.sign({ email: "c@demo.com", role: "company" }, jwtSecret);
-const vendorToken = jwt.sign({ email: "v@demo.com", role: "vendor" }, jwtSecret);
+const companyToken = jwt.sign({ id: "u-company", email: "c@demo.com", role: "company" }, jwtSecret);
+const vendorToken = jwt.sign({ id: "u-vendor", email: "v@demo.com", role: "vendor" }, jwtSecret);
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 
 beforeEach(() => {
@@ -39,14 +39,6 @@ describe("GET /api/bookings", () => {
 });
 
 describe("POST /api/bookings", () => {
-  it("requires the company role", async () => {
-    const res = await request(app)
-      .post("/api/bookings")
-      .set(auth(vendorToken))
-      .send({ guest: "G", date: "2026-08-18", pickup: "A", drop: "B", category: "Sedan" });
-    expect(res.status).toBe(403);
-  });
-
   it("rejects an invalid payload", async () => {
     const res = await request(app)
       .post("/api/bookings")
@@ -55,7 +47,7 @@ describe("POST /api/bookings", () => {
     expect(res.status).toBe(400);
   });
 
-  it("creates a booking and publishes to RabbitMQ", async () => {
+  it("creates a booking and publishes to RabbitMQ (company)", async () => {
     const booking = {
       id: "b-new",
       guest: "G",
@@ -65,6 +57,8 @@ describe("POST /api/bookings", () => {
       category: "Sedan",
       company: "Co",
       contact: "123",
+      user_id: "u-company",
+      status: "pending",
     };
     supabase.from.mockReturnValue(supabase.makeBuilder([booking]));
     const res = await request(app)
@@ -76,6 +70,28 @@ describe("POST /api/bookings", () => {
     expect(rabbit.publishBookingRequest).toHaveBeenCalledWith(
       expect.objectContaining({ type: "NEW_BOOKING_REQUEST", bookingId: "b-new" })
     );
+  });
+
+  it("allows a vendor to create a manual booking directly into 'upcoming', with no RabbitMQ publish", async () => {
+    const booking = {
+      id: "b-manual",
+      guest: "G",
+      date: "2026-08-18",
+      pickup: "A",
+      drop: "B",
+      category: "Sedan",
+      vendor_id: "u-vendor",
+      status: "upcoming",
+      source: "manual",
+    };
+    supabase.from.mockReturnValue(supabase.makeBuilder([booking]));
+    const res = await request(app)
+      .post("/api/bookings")
+      .set(auth(vendorToken))
+      .send({ guest: "G", date: "2026-08-18", pickup: "A", drop: "B", category: "Sedan" });
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe("upcoming");
+    expect(rabbit.publishBookingRequest).not.toHaveBeenCalled();
   });
 });
 
@@ -98,12 +114,60 @@ describe("booking lifecycle (vendor actions)", () => {
     expect(res.body.status).toBe("ongoing");
   });
 
-  it("endtrip returns 404 when the booking is missing", async () => {
+  it("starttrip returns 409 when the booking is not in 'upcoming' (status guard / concurrency)", async () => {
+    supabase.from.mockReturnValue(supabase.makeBuilder([]));
+    const res = await request(app)
+      .post("/api/bookings/b1/starttrip")
+      .set(auth(vendorToken));
+    expect(res.status).toBe(409);
+  });
+
+  it("endtrip rejects a request with no amount", async () => {
+    const res = await request(app)
+      .post("/api/bookings/b1/endtrip")
+      .set(auth(vendorToken))
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it("endtrip returns 409 when the booking is missing or not 'ongoing'", async () => {
     supabase.from.mockReturnValue(supabase.makeBuilder([]));
     const res = await request(app)
       .post("/api/bookings/missing/endtrip")
-      .set(auth(vendorToken));
-    expect(res.status).toBe(404);
+      .set(auth(vendorToken))
+      .send({ amount: 500 });
+    expect(res.status).toBe(409);
+  });
+
+  it("endtrip completes the booking and creates its invoice in one call", async () => {
+    const completedBooking = {
+      id: "b1",
+      status: "completed",
+      company: "Co",
+      date: "2026-08-18",
+      user_id: "u-company",
+      total_amount: 500,
+    };
+    const invoice = { id: "inv-1", booking_id: "b1", amount: 500, status: "received" };
+    supabase.from
+      .mockReturnValueOnce(supabase.makeBuilder([completedBooking])) // bookings update
+      .mockReturnValueOnce(supabase.makeBuilder([invoice])); // invoices insert
+    const res = await request(app)
+      .post("/api/bookings/b1/endtrip")
+      .set(auth(vendorToken))
+      .send({ amount: 500, km: 42 });
+    expect(res.status).toBe(200);
+    expect(res.body.booking.status).toBe("completed");
+    expect(res.body.invoice.id).toBe("inv-1");
+  });
+
+  it("accept-open-market returns 409 when another vendor already accepted it", async () => {
+    supabase.from.mockReturnValue(supabase.makeBuilder([]));
+    const res = await request(app)
+      .post("/api/bookings/b1/accept-open-market")
+      .set(auth(vendorToken))
+      .send({ driver: "D", vehicleType: "Sedan", vehicleNumber: "KA-01" });
+    expect(res.status).toBe(409);
   });
 
   it("filters open-market bookings to the 30-minute SLA window", async () => {

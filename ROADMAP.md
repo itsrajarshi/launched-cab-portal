@@ -4,22 +4,22 @@ Ordered by impact. Effort is a rough estimate (hours) for a single senior engine
 
 ## Critical — must be done before production
 
-| # | Task | Effort | Risk | Branch |
-|---|------|--------|------|--------|
-| 1 | Secrets hygiene: `.env.example` (both sides), `.gitignore`, untrack `node_modules`+`.env`, fail-fast `JWT_SECRET` | 1h | Low | `fix/secrets-hygiene` |
-| 2 | Remove insecure `/login`, `/login/company` + dead `auth/*.tsx` files | 0.5h | Low | `fix/remove-insecure-login` |
-| 3 | `requireRole` middleware + tenant-scoped queries on all list/mutate endpoints | 3h | Med | `fix/authz-role-scoping` |
-| 4 | Fix crash bugs (`toLocaleDateString`, `errors.gguest`) + remove debug `<span>` and dead state | 1h | Low | `fix/bookings-bugs` |
-| 5 | zod validation on auth/bookings/invoices; remove fake `starttrip` billing values | 4h | Med | `fix/input-validation` |
-| 6 | Global error/404 handlers, Helmet, CORS allowlist, rate limit on auth | 3h | Med | `fix/api-hardening` |
-| 7 | Committed `supabase/migrations/0001_init.sql` + apply to project | 3h | Med | `feat/db-schema-migrations` |
+| # | Task | Effort | Risk | Branch | Status |
+|---|------|--------|------|--------|--------|
+| 1 | Secrets hygiene: `.env.example` (both sides), `.gitignore`, untrack `node_modules`+`.env`, fail-fast `JWT_SECRET` | 1h | Low | `fix/secrets-hygiene` | ✅ Done |
+| 2 | Remove insecure `/login`, `/login/company` + dead `auth/*.tsx` files | 0.5h | Low | `fix/remove-insecure-login` | ✅ Done |
+| 3 | `requireRole` middleware + **row-scoped** queries on all list/mutate endpoints | 3h | Med | `feat/relational-integrity-and-authz` | ✅ Done — JWT carries `id`; every route filters by `user_id`/`vendor_id`. `drivers`/`vehicles` gained a `vendor_id` FK. Verified live: a second company account sees zero bookings from the first. |
+| 4 | Fix crash bugs + remove debug `<span>` and dead state | 1h | Low | `fix/bookings-bugs` | ✅ Done |
+| 5 | zod validation on auth/bookings/invoices; **persist real billing values on trip end** | 4h | Med | `feat/relational-integrity-and-authz` | ✅ Done — `endtrip` now takes `{amount, km}`, validates them, and writes them to `bookings.total_amount`/`total_km` (previously `numeric`-typed but never actually written by any route). Update schemas added for all four resources' `PUT` routes, which previously had zero validation. |
+| 6 | Global error/404 handlers, Helmet, CORS allowlist, rate limit on auth | 3h | Med | `fix/api-hardening` | ✅ Done — rate limiting now covers all of `/api`, not just `/api/auth`. |
+| 7 | Committed `supabase/migrations/0001_init.sql` + apply to project | 3h | Med | `feat/db-schema-migrations` | ✅ Done |
 
 ## High priority
 
 | # | Task | Effort |
 |---|------|--------|
 | 8 | Split `bookings/page.tsx` into components + `useBookings` hook | 4h |
-| 9 | Real-time bookings via Supabase Realtime (keep RabbitMQ backend fan-out) | 4h |
+| 9 | Real-time bookings via Supabase Realtime **and a consumed RabbitMQ queue** — Realtime landed earlier; RabbitMQ now has a real consumer too (`backend/worker.js`, manual ack + dead-letter queue, run via `npm run worker`). Previously the queue was publish-only and nothing ever read it. | 4h |
 | 10 | Data-fetching layer (React Query/SWR) | 4h |
 | 11 | Typed API layer + shared `types.ts` (remove `any`) | 4h |
 | 12 | Toast system + skeletons + empty/error states | 4h |
@@ -32,7 +32,7 @@ Ordered by impact. Effort is a rough estimate (hours) for a single senior engine
 
 | # | Task | Effort |
 |---|------|--------|
-| 17 | Normalize DB schema (trip_events, FKs, indexes, checks) | 6h |
+| 17 | Normalize DB schema (trip_events, FKs, indexes, checks) — FKs/indexes/checks done in `0003_relational_integrity.sql` (`users`↔`bookings`↔`drivers`/`vehicles`↔`invoices`, plus `vehicles.plate` unique); `trip_events` audit table still open | 6h |
 | 18 | Mobile nav + responsive polish | 4h |
 | 19 | Accessibility pass (labels, `th scope`, focus, aria, modal a11y) | 3h |
 | 20 | Unify dark mode (persisted + system preference) | 2h |
