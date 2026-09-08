@@ -35,10 +35,13 @@ router.post("/register", validate(schemas.register), async (req, res) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10); // Use bcryptjs for hashing
 
-    // Insert the new user with the specified role
+    // Insert the new user with the specified role.
+    // `.select()` is required here — without it supabase-js returns
+    // `data: null` on an insert, and `data[0]` below would throw.
     const { data, error: insertErr } = await supabase
       .from("users")
-      .insert([{ email, password: hashedPassword, role, name }]); // Use hashedPassword
+      .insert([{ email, password: hashedPassword, role, name }])
+      .select();
 
     if (insertErr) {
       console.error("Error inserting new user:", insertErr.message);
@@ -47,8 +50,10 @@ router.post("/register", validate(schemas.register), async (req, res) => {
 
     const user = data[0];
 
-    // Generate JWT token
-    const token = jwt.sign({ email: user.email, role: user.role }, jwtSecret, {
+    // The token carries the user's id (not just email/role) so every
+    // authenticated route can filter reads and writes to rows this user
+    // actually owns, instead of every authenticated user seeing every row.
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, {
       expiresIn: "1d",
     });
 
@@ -89,7 +94,7 @@ router.post("/login", validate(schemas.login), async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ email: user.email, role: user.role }, jwtSecret, {
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, {
       expiresIn: "1d",
     });
 

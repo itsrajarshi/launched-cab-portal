@@ -12,6 +12,15 @@ function makeBuilder(data = [], error = null) {
     eq() {
       return this;
     },
+    in() {
+      return this;
+    },
+    or() {
+      return this;
+    },
+    is() {
+      return this;
+    },
     single() {
       return Promise.resolve({ data: this.data, error: this.error });
     },

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  acceptOpenMarket,
   createBooking,
   createDriver,
   createInvoice,
@@ -16,6 +17,8 @@ import {
   fetchDrivers,
   fetchInvoices,
   fetchVehicles,
+  placeInOpenMarket,
+  rejectBooking,
   startTrip,
   updateBooking,
   updateDriver,
@@ -138,12 +141,65 @@ export function useStartTrip() {
 export function useEndTrip() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => endTrip(id),
+    mutationFn: ({ id, amount, km }: { id: string; amount: number; km?: number }) =>
+      endTrip(id, { amount, km }),
     onSuccess: (updated) => {
       client.setQueryData<Booking[]>(queryKeys.bookings, (old = []) =>
         old.map((row) => (row.id === updated.id ? updated : row))
       );
-      toast.success("Trip ended");
+      toast.success("Trip ended and invoice created");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function usePlaceInOpenMarket() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => placeInOpenMarket(id),
+    onSuccess: (updated) => {
+      client.setQueryData<Booking[]>(queryKeys.bookings, (old = []) =>
+        old.map((row) => (row.id === updated.id ? updated : row))
+      );
+      toast.success("Booking placed in open market");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useAcceptOpenMarket() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      driver,
+      vehicleType,
+      vehicleNumber,
+    }: {
+      id: string;
+      driver?: string;
+      vehicleType?: string;
+      vehicleNumber?: string;
+    }) => acceptOpenMarket(id, driver, vehicleType, vehicleNumber),
+    onSuccess: (updated) => {
+      client.setQueryData<Booking[]>(queryKeys.bookings, (old = []) =>
+        old.map((row) => (row.id === updated.id ? updated : row))
+      );
+      toast.success("Booking accepted");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useRejectBooking() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => rejectBooking(id),
+    onSuccess: (updated) => {
+      client.setQueryData<Booking[]>(queryKeys.bookings, (old = []) =>
+        old.map((row) => (row.id === updated.id ? updated : row))
+      );
+      toast.success("Booking rejected");
     },
     onError: (err) => toast.error(errorMessage(err)),
   });

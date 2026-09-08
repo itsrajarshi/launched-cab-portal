@@ -150,7 +150,11 @@ export default function InvoicesPage() {
       )}
       <div className="overflow-x-auto rounded-xl border border-blue-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-900/90 dark:text-white mt-4">
         {loading ? (
-          <TableSkeleton cols={7} rows={5} />
+          <table className="min-w-full bg-white dark:bg-gray-900 border-0 rounded-xl">
+            <tbody>
+              <TableSkeleton cols={7} rows={5} />
+            </tbody>
+          </table>
         ) : tab !== 'monthly' ? (
           <table className="min-w-full bg-white dark:bg-gray-900 border-0 rounded-xl">
             <thead>
