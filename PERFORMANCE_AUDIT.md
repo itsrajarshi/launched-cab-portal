@@ -14,7 +14,7 @@ flags structural inefficiencies that will matter at scale and for a polished dem
 | 3 | API | No pagination/filtering/sorting on list endpoints; all rows returned and filtered client-side | High | Server-side query params + indexes |
 | 4 | Network | `handleAssign` triggers `fetchBookings()` 3× redundantly | Medium | Single refresh after mutation |
 | 5 | Caching | No dedupe/cache across fetches; every navigation refetches | Medium | React Query/SWR |
-| 6 | DB | No indexes on `bookings` (filtered by `status`, `company`, `date`) | High | Add indexes in schema |
+| 6 | DB | ~~No indexes on `bookings`~~ — `status`/`company`/`date` indexed since `0001_init.sql`; `user_id`/`vendor_id` indexed since `0003_relational_integrity.sql` (added alongside the FKs those columns needed for row-scoped queries — see `SECURITY_AUDIT.md` #8) | ✅ Resolved | — |
 | 7 | DB | `bookings` fetched with `select('*')` (wide table incl. billing columns) | Medium | Column projection |
 | 8 | Bundle | Three font families loaded (Geist, Geist Mono, Inter); only Inter used for body + geist vars | Medium | Trim to needed fonts |
 | 9 | Rendering | Fullscreen greeting overlay + auto-open trip modal cause re-renders/layout churn | Low | Simplify |
